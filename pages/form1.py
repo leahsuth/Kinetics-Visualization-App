@@ -9,6 +9,7 @@ uploaded_file = st.file_uploader("File goes here", accept_multiple_files=False)
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
+    df.columns = df.columns.str.strip()
     samples = df['Sample Name'].str[:-4].unique()
     chosen_sample = st.selectbox("Choose a sample to plot", samples)
     filtered_df = df[df['Sample Name'].str[:-4] == chosen_sample]

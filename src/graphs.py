@@ -73,3 +73,6 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     st.divider()
     st.subheader("Initial Rate")
     st.caption("Initial rate will be calculated here.")
+
+
+

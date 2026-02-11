@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t merck-kinetics .
+podman build -t merck-kinetics .

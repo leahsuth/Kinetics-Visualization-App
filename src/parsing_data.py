@@ -2,11 +2,15 @@ import pandas as pd
 from pathlib import Path
 import openpyxl # needed for excel file -> df
 
+#TODO: Need to add a section that just processes the first line of the Excel file for the description
+
 def process_data(file_name, save_as_csv=False):
     """
     Processing .xlsx, .xls, and .csv files into Pandas Dataframe
 
     This should work for Excel files with multiple sheets
+    Based on Merck feedback, assuming that multiple sheets correspond to the same reaction name
+    #TODO: Need to add that to the Streamlit home page
     
     Parameters
     -----------
@@ -55,9 +59,9 @@ def process_data(file_name, save_as_csv=False):
             if len(matches) == 0:
                 df = pd.read_excel(file_name, sheet_name=i)
 
-                # Change name of first column to "Sample Name"
+                # Change name of first column to "Reaction"
                 cols = list(df.columns)
-                cols[0] = 'Sample Name'
+                cols[0] = 'Reaction'
                 df.columns = cols
 
             else:
@@ -85,27 +89,38 @@ def process_data(file_name, save_as_csv=False):
                 # Now flatten the MultiIndex into single-level column names
                 flat_columns = []
                 for parent, child in df.columns:
-                    flat_name = f"{parent}_{child}"
+                    flat_name = f"{parent}__{child}" # parse by __
                     flat_columns.append(flat_name)
 
                 # assign to the df columns
                 df.columns = flat_columns
-
-                # Create a copy of current columns as a list
-                cols = list(df.columns)
-
-                # Change the first element
-                cols[0] = 'Sample Name'
-
-                # Assign the modified list back
-                df.columns = cols
 
             # Drop fully empty rows and columns
             df = df.dropna(axis=0, how="all")
             df = df.dropna(axis=1, how="all")
 
             parsed.append(df)
-            
+
+            # Create a copy of current columns as a list
+            cols = list(df.columns)
+
+            # Change the known columns
+            cols[0] = 'Reaction'
+            cols[1] = 'Well' # may need to be split up
+            cols[2] = 'Injection_Numbers'
+
+            # Assign the modified list back
+            df.columns = cols
+
+            # Create a new column for Plate Number, defaults to AAA
+            new_col = df["Well"].where(df["Well"].str.contains("-"),"AAA").str.split("-").str[0]
+            df.insert(1, "Plate_Number", new_col)
+
+            # Remove Plate_Number- from Well if it exists
+            df["Well"] = df["Well"].str.replace(r"^.*?-", "", regex=True)
+
+            df["Sheet_Number"] = i
+
         merged_df = pd.concat(parsed, ignore_index=True)
 
         if save_as_csv:
@@ -117,7 +132,7 @@ def process_data(file_name, save_as_csv=False):
         raise ValueError("Must be a CSV or Excel filetype. Please save and re-upload.")
 
 #TODO: This is the main part that needs work, I barely touched it. I commented my ideas/thoughts below
-def standardize_data(dataframe):
+def standardize_data_mockdata(dataframe):
     """
     Standardize data function
     Process the Dataframe for graphing
@@ -138,14 +153,10 @@ def standardize_data(dataframe):
     # standardize column titles
     dataframe.columns = dataframe.columns.str.strip().str.lower().str.replace(' ', '_').str.strip()
 
-    # TODO: need to add a function to name the unnamed well column
-
     # TODO: need to figure out what to do about all of the unnamed columns
 
     # Add a reaction type column to distinguish which reaction we're looking at
-    # TODO: NEED TO FIGURE OUT HOW TO MAKE THIS WORK FOR MORE DATA, might need to have a section where the 
-    # scientist adds in the name of the reaction so that we can parse it out unless there's some sort of standard...
-    # right now, to me, it seems like we could parse everything to do the LEFT of last dash (but idk if this will work forever)
+    # TODO: now we don't have to do this... can assume that one data file only has one reaction
     dataframe["reaction_type"] = dataframe["sample_name"].str[:6] # this may not be consistent for future data!
 
     # pandas melt to make each concentration so each group has its own row for plotting
@@ -163,13 +174,112 @@ def standardize_data(dataframe):
     for reaction, group in melted_data.groupby("reaction_type"):
         group.to_csv(f"{reaction}.csv", index=False)
 
+def standardize_data_realdata(dataframe, save_as_csv=False):
+    """
+    Standardize data function
+    Process the Dataframe for graphing
+
+    Parameters
+    -----------
+    dataframe : pd dataframe
+        Pandas Dataframe to be processed
+    rows : bool
+        If time increases down the row
+    cols : bool
+        If time increases across columns
+    
+    Returns
+    --------
+    df : pandas dataframe
+        Saves multiple CSV files of pandas dataframe
+        One CSV file is saved per experiment
+    """
+    # pandas melt to make each concentration so each group has its own row for plotting
+    id_cols = ["Reaction", "Plate_Number", "Well", "Injection_Numbers"]
+
+    if "Sheet_Number" in dataframe.columns:
+        id_cols.append("Sheet_Number")
+
+    melted_data = pd.melt(dataframe, id_vars=id_cols, var_name="Measurement", value_name="Value")
+
+    # add a column for the reactant
+    reactant_col = melted_data["Measurement"].str.extract(r"RT_(\d+\.?\d*)")[0].astype(str)
+    melted_data.insert(3, "Reactant", reactant_col)
+
+    # Add a new column for RT (not peak)
+    rt_col = melted_data["Measurement"].str.extract(r"^(.*?)_RT_")[0]
+    melted_data.insert(3, "RT", rt_col)
+    #TODO: Filling missing RT with the RT Num for now...should figure out what to do
+    melted_data["RT"] = melted_data["RT"].fillna(melted_data["Reactant"].astype(str))
+
+    # Remove RT-#__ from Measurement
+    melted_data["Measurement"] = melted_data["Measurement"].str.replace(r"^.*?__", "", regex=True)
+
+    # convert to pivot table
+    id_cols.append("Reactant")
+    id_cols.append("RT")
+    pivoted_data = melted_data.pivot(index=id_cols, columns='Measurement', values='Value').reset_index()
+
+    # sort by Sheet Number, if it exists
+    if "Sheet_Number" in pivoted_data.columns:
+        pivoted_data = pivoted_data.sort_values(by=["Sheet_Number", 'Well'])
+
+    # now, download the data!
+    # should save in a folder later
+    if save_as_csv:
+        pivoted_data.to_csv("final_data.csv", index=False)
+    return pivoted_data
+
+def add_time(dataframe, row, col):
+    """
+    Standardize data function
+    Process the Dataframe for graphing
+
+    Parameters
+    -----------
+    dataframe : pd dataframe
+        Pandas Dataframe to be processed
+    rows : bool
+        If time increases down the row
+    cols : bool
+        If time increases across columns
+    
+    Returns
+    --------
+    df : pandas dataframe
+        Saves multiple CSV files of pandas dataframe
+        One CSV file is saved per experiment
+    """
+    if row:
+        mapping_wells = {"A" : 1,
+                        "B" : 2,
+                        "C" : 3,
+                        "D" : 4,
+                        "E" : 5,
+                        "F" : 6,
+                        "G" : 7,
+                        "H" : 8}
+        dataframe["Time"] = dataframe["Well"].str.extract(r"([A-H])")[0].map(mapping_wells)
+
+    elif col:
+        dataframe["Time"] = dataframe["Well"].str.extract(r"(\d+)").astype(int)
+
+    else:
+        raise ValueError("Cannot support this.")
+        
+    dataframe.to_csv("final_data.csv", index=False)
+
 if __name__=="__main__":
     # this section works
     df_csv = process_data("./data/Example_Data_SpiroXantPhos.csv") # this works!
-    standardize_data(df_csv)
+    #standardize_data_mockdata(df_csv)
 
-    # this shows how a df is created for an Excel file where both sheets do not match
-    df_excel_diff_sheets = process_data("./data/Example_ChemStation_Data_NB-0123-0002.xlsx", True)
+    # this shows how a df is created for an Excel file with two sheets, but one experiment
+    df_excel_diff_sheets = process_data("./data/Example_ChemStation_Data_GPT_TWOSHEETSONEEXPERIMENT.xlsx", True)
+    df = standardize_data_realdata(df_excel_diff_sheets, False)
+    add_time(df, False, True)
 
-    # this shows how a df is created for an Excel file where the sheets do match
-    df_excel = process_data("./data/Example_ChemStation_Data_GPT.xlsx", True)
+    # this shows how a df is created for an Excel file with just one sheet
+    df_excel = process_data("./data/Example_ChemStation_Data_NB-0123-0002_ONESHEET.xlsx", True)
+    #df = standardize_data_realdata(df_excel, False)
+    #add_time(df, False, True)

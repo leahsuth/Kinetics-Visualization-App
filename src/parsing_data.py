@@ -4,10 +4,9 @@ Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 """
 import pandas as pd
 from pathlib import Path
-import openpyxl  # needed for pandas read_excel on .xlsx files
+import openpyxl # needed for excel file -> df 
 
-# TODO: Need to add a section that just processes the first line of the Excel file for the description
-
+#TODO: Need to add a section that just processes the first line of the Excel file for the description
 
 def process_data(file_name, save_as_csv=False):
     """
@@ -23,7 +22,6 @@ def process_data(file_name, save_as_csv=False):
         Path to file or Streamlit UploadedFile (must have .name for extension)
     save_as_csv : bool
         Saves as CSV if True
-
     Returns
     --------
     df : pandas dataframe

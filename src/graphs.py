@@ -1,10 +1,7 @@
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
 from .parsing_data import add_time
-
 
 def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     # Require Time
@@ -36,6 +33,7 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     ).dropna(subset=["Concentration"])
 
     hover_opts = {"Time": True, "Concentration": True, "Analyte": True}
+
     if chart_type == "Line":
         fig = px.line(melted_df, x="Time", y="Concentration", color="Analyte", markers=True, hover_data=hover_opts)
     else:

@@ -216,6 +216,13 @@ def standardize_data(df, save_as_csv=False):
 
 
 # add time column from Well: row=True uses letter (A=1..H=8), col=True uses number.
+=======
+def standardize_data_realdata(df, save_as_csv=False):
+    # Backwards-compatible name expected by tests and callers.
+    return standardize_data(df, save_as_csv=save_as_csv)
+
+#add time column from Well: row=True uses letter (A=1..H=8), col=True uses number.
+
 def add_time(df, row, col):
     """
     Add a time column to the dataframe.
@@ -267,3 +274,5 @@ if __name__ == "__main__":
     )
     df = standardize_data(df_excel, False)
     add_time(df, False, True)
+
+    df_excel = process_data("./data/Example_ChemStation_Data_NB-0123-0002_ONESHEET.xlsx", True)

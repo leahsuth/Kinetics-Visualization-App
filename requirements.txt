@@ -4,4 +4,4 @@ seaborn
 matplotlib
 plotly
 openpyxl
-xlrd
+pytest

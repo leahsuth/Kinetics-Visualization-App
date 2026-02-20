@@ -13,6 +13,10 @@ def lin_reg(df: pd.DataFrame, start_index: int, end_index: int) -> LinearRegress
     sliced_df = df[start_index : end_index]
     X = sliced_df['Time']
     y = sliced_df['Measurement']
-    pass
+    
+    model = LinearRegression()
+    model.fit(X,y)
+
+    return model
 
 

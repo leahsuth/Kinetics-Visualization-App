@@ -1,3 +1,7 @@
+"""
+Parse kinetics data from CSV and Excel (ChemStation) files.
+Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
+"""
 import pandas as pd
 from pathlib import Path
 import openpyxl # needed for excel file -> df 
@@ -11,275 +15,158 @@ def process_data(file_name, save_as_csv=False):
     This should work for Excel files with multiple sheets
     Based on Merck feedback, assuming that multiple sheets correspond to the same reaction name
     #TODO: Need to add that to the Streamlit home page
-    
+
     Parameters
     -----------
-    file_name : str
-        Path to file name containing data
+    file_name : str or file-like
+        Path to file or Streamlit UploadedFile (must have .name for extension)
     save_as_csv : bool
         Saves as CSV if True
-    
     Returns
     --------
     df : pandas dataframe
         Dataframe with data from provided file
     """
-    ext = Path(file_name).suffix.lower() # extract file type
+    # Handle both file paths and uploaded file
+    ext = Path(file_name.name).suffix.lower() if hasattr(file_name, "name") else Path(file_name).suffix.lower()
+    out_path = Path(getattr(file_name, "name", file_name)).with_suffix(".csv") if save_as_csv else None
+
     if ext == ".csv":
-        # so far, if CSV, no processing needed to create dataframe
+        #so far, if CSV, no processing needed to create dataframe
         df = pd.read_csv(file_name)
-
-        # Change name of first column to "Sample Name"
         cols = list(df.columns)
-        cols[0] = 'Sample Name'
+        #change name of first column to Sample Name
+        cols[0] = "Sample Name"
         df.columns = cols
-
         if save_as_csv:
-            df.to_csv(f"{file_name}.csv", index=False)
-        
+            df.to_csv(out_path, index=False)
         return df
 
     elif ext in (".xlsx", ".xls"):
-        # first, need to get the total number of sheets in the Excel file
-        xls = pd.ExcelFile(file_name)
+        #first, need to get the total number of sheets in the Excel file
+        engine = "openpyxl" if ext == ".xlsx" else "xlrd"
+        xls = pd.ExcelFile(file_name, engine=engine)
         num_sheets = len(xls.sheet_names)
-
-        # Store all of the dataframes from Excel file in parsed
+        #store all of the dataframes from Excel file in parsed
         parsed = []
-
-        # process all of the sheets
+    
+        #process all of the sheet
         for i in range(num_sheets):
-            # Read data into basic dataframe
-            raw = pd.read_excel(file_name, sheet_name=i, header=None)
-
-            # Find the first row that contains "Peak RT"
+            #read data into basic dataframe
+            raw = pd.read_excel(file_name, sheet_name=i, header=None, engine=engine)
+            #find the first row that contains "Peak RT"
             matches = raw.index[raw.apply(lambda r: r.astype(str).str.contains("Peak RT", na=False).any(), axis=1)]
-
-            # if not data from chemstation, may not have this column
+            #if not data from chemstation, may not have this column
             if len(matches) == 0:
-                df = pd.read_excel(file_name, sheet_name=i)
-
-                # Change name of first column to "Reaction"
+                df = pd.read_excel(file_name, sheet_name=i, engine=engine)
+                #change name of first column to Reaction
                 cols = list(df.columns)
-                cols[0] = 'Reaction'
+                cols[0] = "Reaction"
                 df.columns = cols
-
             else:
-                # header row is the one with the RT, above the Peak RT row
+                #header row is the one with the RT, above the peak RT row
                 hdr1_row = matches[0] - 1
-
-                # Re-read sheet with multi-row header (RT, Peak Area/etc.)
+                #Re-read sheet with multi-row header (RT, Peak Area/etc.)
                 df = pd.read_excel(
                     file_name,
                     sheet_name=i,
                     skiprows=int(hdr1_row),
-                    header=[0, 1]
+                    header=[0, 1],
+                    engine=engine,
                 )
-
-                # Extract the two header levels
                 level0 = df.columns.get_level_values(0)
                 level1 = df.columns.get_level_values(1)
-
-                # Convert level 0 to Series so we can forward-fill merged cells
+                # Extract the two header levels
                 level0_filled = pd.Series(level0).ffill()
-
                 # Rebuild the MultiIndex using level 0
                 df.columns = pd.MultiIndex.from_arrays([level0_filled, level1])
-
                 # Now flatten the MultiIndex into single-level column names
                 flat_columns = []
                 for parent, child in df.columns:
-                    flat_name = f"{parent}__{child}" # parse by __
-                    flat_columns.append(flat_name)
-
-                # assign to the df columns
+                    flat_columns.append(f"{parent}__{child}")
                 df.columns = flat_columns
-
-            # Drop fully empty rows and columns
-            df = df.dropna(axis=0, how="all")
-            df = df.dropna(axis=1, how="all")
-
+            #drop any rows or columns that are empty
+            df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
             parsed.append(df)
-
-            # Create a copy of current columns as a list
+            ## Create a copy of current columns as a list
             cols = list(df.columns)
-
             # Change the known columns
-            cols[0] = 'Reaction'
-            cols[1] = 'Well' # may need to be split up
-            cols[2] = 'Injection_Numbers'
-
+            cols[0] = "Reaction"
+            cols[1] = "Well"
+            cols[2] = "Injection_Numbers"
             # Assign the modified list back
             df.columns = cols
-
             # Create a new column for Plate Number, defaults to AAA
-            new_col = df["Well"].where(df["Well"].str.contains("-"),"AAA").str.split("-").str[0]
+            new_col = df["Well"].where(df["Well"].str.contains("-"), "AAA").str.split("-").str[0]
             df.insert(1, "Plate_Number", new_col)
-
             # Remove Plate_Number- from Well if it exists
             df["Well"] = df["Well"].str.replace(r"^.*?-", "", regex=True)
-
             df["Sheet_Number"] = i
 
         merged_df = pd.concat(parsed, ignore_index=True)
-
         if save_as_csv:
-            merged_df.to_csv(f"{file_name}.csv", index=False)
-
+            merged_df.to_csv(out_path, index=False)
         return merged_df
 
     else:
         raise ValueError("Must be a CSV or Excel filetype. Please save and re-upload.")
 
-#TODO: This is the main part that needs work, I barely touched it. I commented my ideas/thoughts below
-def standardize_data_mockdata(dataframe):
-    """
-    Standardize data function
-    Process the Dataframe for graphing
-
-    Parameters
-    -----------
-    dataframe : pd dataframe
-        Pandas Dataframe to be processed
-    
-    Returns
-    --------
-    df : pandas dataframe
-        Saves multiple CSV files of pandas dataframe
-        One CSV file is saved per experiment
-    """
-    # THIS CURRENTLY ONLY WORKS FOR THE CSV MOCK DATA
-
-    # standardize column titles
-    dataframe.columns = dataframe.columns.str.strip().str.lower().str.replace(' ', '_').str.strip()
-
-    # TODO: need to figure out what to do about all of the unnamed columns
-
-    # Add a reaction type column to distinguish which reaction we're looking at
-    # TODO: now we don't have to do this... can assume that one data file only has one reaction
-    dataframe["reaction_type"] = dataframe["sample_name"].str[:6] # this may not be consistent for future data!
-
-    # pandas melt to make each concentration so each group has its own row for plotting
-    # TODO: Need to make this work for other data
-    melted_data = pd.melt(dataframe,
-                        ["sample_name", "reaction_type", "time"],
-                        ["amine", "aryl_bromide", "mono", "di_same_ring", "di_opposite_ring", "tri", "spiro", "unknown_rt_2.2"],
-                        "molecule", "concentration")
-
-    # printing to inspect
-    # print(melted_data.head(50))
-
-    # now, download the data!
-    # should save in a folder later
-    for reaction, group in melted_data.groupby("reaction_type"):
-        group.to_csv(f"{reaction}.csv", index=False)
-
-def standardize_data_realdata(dataframe, save_as_csv=False):
-    """
-    Standardize data function
-    Process the Dataframe for graphing
-
-    Parameters
-    -----------
-    dataframe : pd dataframe
-        Pandas Dataframe to be processed
-    rows : bool
-        If time increases down the row
-    cols : bool
-        If time increases across columns
-    
-    Returns
-    --------
-    df : pandas dataframe
-        Saves multiple CSV files of pandas dataframe
-        One CSV file is saved per experiment
-    """
-    # pandas melt to make each concentration so each group has its own row for plotting
+def standardize_data(df, save_as_csv=False):
+    #get metadata columns
     id_cols = ["Reaction", "Plate_Number", "Well", "Injection_Numbers"]
-
-    if "Sheet_Number" in dataframe.columns:
+    #if sheet number is in the columns, add it to the metadata columns
+    if "Sheet_Number" in df.columns:
         id_cols.append("Sheet_Number")
-
-    melted_data = pd.melt(dataframe, id_vars=id_cols, var_name="Measurement", value_name="Value")
-
-    # add a column for the reactant
+    #melt the data into a long format
+    melted_data = pd.melt(df, id_vars=id_cols, var_name="Measurement", value_name="Value")
+    #extract the reactant column
     reactant_col = melted_data["Measurement"].str.extract(r"RT_(\d+\.?\d*)")[0].astype(str)
+    #insert the reactant column into the dataframe
     melted_data.insert(3, "Reactant", reactant_col)
-
-    # Add a new column for RT (not peak)
+    #extract the RT column
     rt_col = melted_data["Measurement"].str.extract(r"^(.*?)_RT_")[0]
+    #insert the RT column into the dataframe
     melted_data.insert(3, "RT", rt_col)
-    #TODO: Filling missing RT with the RT Num for now...should figure out what to do
+    #fill any missing RT values with the reactant column
     melted_data["RT"] = melted_data["RT"].fillna(melted_data["Reactant"].astype(str))
-
-    # Remove RT-#__ from Measurement
+    #remove the __ from the measurement column
     melted_data["Measurement"] = melted_data["Measurement"].str.replace(r"^.*?__", "", regex=True)
 
-    # convert to pivot table
-    id_cols.append("Reactant")
-    id_cols.append("RT")
-    pivoted_data = melted_data.pivot(index=id_cols, columns='Measurement', values='Value').reset_index()
+    # pivot_table handles duplicate index/column pairs
+    pivot_index = id_cols + ["Reactant", "RT"]
+    pivoted_data = melted_data.pivot_table(
+        index=pivot_index, columns="Measurement", values="Value", aggfunc="first"
+    ).reset_index()
 
-    # sort by Sheet Number, if it exists
+    #sort the data by Sheet Number and Well
     if "Sheet_Number" in pivoted_data.columns:
-        pivoted_data = pivoted_data.sort_values(by=["Sheet_Number", 'Well'])
-
-    # now, download the data!
-    # should save in a folder later
+        pivoted_data = pivoted_data.sort_values(by=["Sheet_Number", "Well"])
     if save_as_csv:
         pivoted_data.to_csv("final_data.csv", index=False)
     return pivoted_data
 
-def add_time(dataframe, row, col):
-    """
-    Standardize data function
-    Process the Dataframe for graphing
 
-    Parameters
-    -----------
-    dataframe : pd dataframe
-        Pandas Dataframe to be processed
-    rows : bool
-        If time increases down the row
-    cols : bool
-        If time increases across columns
-    
-    Returns
-    --------
-    df : pandas dataframe
-        Saves multiple CSV files of pandas dataframe
-        One CSV file is saved per experiment
-    """
+def standardize_data_realdata(df, save_as_csv=False):
+    # Backwards-compatible name expected by tests and callers.
+    return standardize_data(df, save_as_csv=save_as_csv)
+
+#add time column from Well: row=True uses letter (A=1..H=8), col=True uses number.
+def add_time(df, row, col):
     if row:
-        mapping_wells = {"A" : 1,
-                        "B" : 2,
-                        "C" : 3,
-                        "D" : 4,
-                        "E" : 5,
-                        "F" : 6,
-                        "G" : 7,
-                        "H" : 8}
-        dataframe["Time"] = dataframe["Well"].str.extract(r"([A-H])")[0].map(mapping_wells)
-
+        wells = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7, "H": 8}
+        #extract the letter from the Well column and map to the number
+        df["Time"] = df["Well"].str.extract(r"([A-H])")[0].map(wells)
     elif col:
-        dataframe["Time"] = dataframe["Well"].str.extract(r"(\d+)").astype(int)
-
+        #convert number from well column to time
+        df["Time"] = df["Well"].str.extract(r"(\d+)").astype(int)
     else:
-        raise ValueError("Cannot support this.")
-        
-    dataframe.to_csv("final_data.csv", index=False)
+        raise ValueError("Must specify row=True or col=True for time extraction.")
+    df.to_csv("final_data.csv", index=False)
 
-if __name__=="__main__":
-    # this section works
-    df_csv = process_data("./data/Example_Data_SpiroXantPhos.csv") # this works!
-    #standardize_data_mockdata(df_csv)
 
-    # this shows how a df is created for an Excel file with two sheets, but one experiment
+if __name__ == "__main__":
+    df_csv = process_data("./data/Example_Data_SpiroXantPhos.csv")
     df_excel_diff_sheets = process_data("./data/Example_ChemStation_Data_GPT_TWOSHEETSONEEXPERIMENT.xlsx", True)
-    df = standardize_data_realdata(df_excel_diff_sheets, False)
+    df = standardize_data(df_excel_diff_sheets, False)
     add_time(df, False, True)
-
-    # this shows how a df is created for an Excel file with just one sheet
     df_excel = process_data("./data/Example_ChemStation_Data_NB-0123-0002_ONESHEET.xlsx", True)
-    #df = standardize_data_realdata(df_excel, False)
-    #add_time(df, False, True)

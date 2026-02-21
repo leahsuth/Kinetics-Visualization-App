@@ -216,7 +216,6 @@ def standardize_data(df, save_as_csv=False):
 
 
 # add time column from Well: row=True uses letter (A=1..H=8), col=True uses number.
-=======
 def standardize_data_realdata(df, save_as_csv=False):
     # Backwards-compatible name expected by tests and callers.
     return standardize_data(df, save_as_csv=save_as_csv)

@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.parsing_data import add_time, process_data, standardize_data_realdata
+from src.parsing.parsing_data import add_time, process_data, standardize_data_realdata
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 CSV_PATH = DATA_DIR / "Example_Data_SpiroXantPhos.csv"

@@ -5,3 +5,5 @@ matplotlib
 plotly
 openpyxl
 pytest
+numpy
+scikit-learn

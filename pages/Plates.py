@@ -1,6 +1,7 @@
 import streamlit as st
 from src.page_styling.plate_selector import render_well_plate
 
+st.logo(image='assets/Merck_Logo.png')
 st.set_page_config(layout="wide")
 
 n_rows = st.number_input("Number of Rows", min_value=1, max_value=12, value=1)

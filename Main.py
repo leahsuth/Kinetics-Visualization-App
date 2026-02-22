@@ -11,3 +11,4 @@ st.markdown(
     "Upload kinetics CSV data, select a reaction, and visualize concentration over time."
 )
 st.page_link("pages/Kinetics.py", label="→ Upload & Plot Data", icon="📈")
+st.logo(image='assets/Merck_Logo.png')

@@ -247,7 +247,7 @@ def add_time(df, row, col):
         df["Time"] = df["Well"].str.extract(r"([A-H])")[0].map(wells)
     elif col:
         # convert number from well column to time
-        df["Time"] = df["Well"].str.extract(r"(\d+)").astype(int)
+        df["Time"] = df["Well"].str.extract(r"(\d+)")[0].astype(int)
     else:
         raise ValueError("Must specify row=True or col=True for time extraction.")
     df.to_csv("final_data.csv", index=False)

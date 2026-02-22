@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from .parsing_data import add_time  # keep if used elsewhere; remove if unused
+from src.parsing.parsing_data import add_time  # keep if used elsewhere; remove if unused
 
 
 # ----------------------------

@@ -1,5 +1,6 @@
 import streamlit as st
 
+st.logo(image='assets/Merck_Logo.png')
 st.write("# Unit Conversions")
 st.markdown(
     "Convert common lab units across length, mass, volume, and temperature."

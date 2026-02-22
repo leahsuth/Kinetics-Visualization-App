@@ -2,6 +2,7 @@ from src.parsing.parsing_data import process_data, standardize_data, add_time
 from src.figures.graphs import graph_from_csv, graph_from_xlsx
 import streamlit as st
 
+st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
 with st.sidebar:

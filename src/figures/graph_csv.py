@@ -57,7 +57,7 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
 
     if start_index >= end_index:
         st.error("Start Index must be less than End Index!")
-        return
+        raise ValueError("start_index greater than end_index")
 
     # create models for each analyte in the provided range
     regression_lines = []

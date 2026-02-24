@@ -142,6 +142,3 @@ def graph_from_xlsx(df: pd.DataFrame):
 
 
     st.plotly_chart(fig, use_container_width=True)
-    st.divider()
-    st.subheader("Initial Rate")
-    st.caption("Initial rate will be calculated here.")

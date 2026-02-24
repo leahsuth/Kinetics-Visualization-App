@@ -7,6 +7,7 @@ def lin_reg(
     start_index: int,
     end_index: int,
 ) -> tuple[LinearRegression, pd.DataFrame]:
+
     if "Time" not in df.columns or y_col not in df.columns:
         raise ValueError("DataFrame does not contain required Time or measurement columns.")
 

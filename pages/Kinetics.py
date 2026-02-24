@@ -2,6 +2,7 @@ from src.parsing.parsing_data import process_data, standardize_data, add_time
 from src.figures.graph_csv import graph_from_csv
 from src.figures.graph_xl import graph_from_xlsx
 import streamlit as st
+from streamlit import session_state as _state
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
@@ -15,20 +16,32 @@ with st.sidebar:
         help="Upload a CSV or Excel (ChemStation) kinetics file.",
     )
 
-if uploaded_file is not None:
-    file_type = uploaded_file.name.split(".")[-1].lower()
-    with st.spinner("Loading data..."):
-        df = process_data(uploaded_file)
+if uploaded_file is None:
+    st.info("Please Upload a file to begin")
+    st.stop()
 
-    if file_type == "csv":
-        df.columns = df.columns.str.strip()
-        samples = df["Sample Name"].str[:-4].unique()
-        chosen_sample = st.sidebar.selectbox("Choose a sample to plot", samples)
-        filtered_df = df[df["Sample Name"].str[:-4] == chosen_sample]
-        st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
-        graph_from_csv(filtered_df)
-    else:
-        df = standardize_data(df)
-        add_time(df, row=False, col=True)
-        st.success(f"Loaded {len(df)} rows from Excel file")
-        graph_from_xlsx(df)
+file_type = uploaded_file.name.split(".")[-1].lower()
+with st.spinner("Loading data..."):
+    df = process_data(uploaded_file)
+
+if file_type == "csv":
+    df.columns = df.columns.str.strip()
+    samples = df["Sample Name"].str[:-4].unique()
+    chosen_sample = st.sidebar.selectbox("Choose a sample to plot", samples)
+    filtered_df = df[df["Sample Name"].str[:-4] == chosen_sample]
+    st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
+    graph_from_csv(filtered_df)
+else:
+    df = standardize_data(df)
+    add_time(df, row=False, col=True)
+    st.success(f"Loaded {len(df)} rows from Excel file")
+    graph_from_xlsx(df)
+
+st.divider()
+st.write("# Initial Rate Calculations")
+
+if 'regression_models' not in _state:
+    st.warning('No models uploaded!')
+    st.stop()
+
+models = _state['regression_models']

@@ -1,11 +1,13 @@
 import pandas as pd
 import streamlit as st
+from streamlit import session_state as _state
 import plotly.express as px
 import plotly.graph_objects as go
 from src.parsing.parsing_data import add_time  # keep if used elsewhere; remove if unused
 from src.regression.linear_regression import lin_reg
 
 def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
+    #----Initial Plotting---------------------------------
     # Require Time
     if "Time" not in df.columns:
         st.error('CSV must include a "Time" column.')
@@ -39,10 +41,12 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
 
     hover_opts = {"Time": True, "Concentration": True, "Analyte": True}
 
+    #----Regression---------------------------------
     if len(df2) < 2:
         st.error("Not enough rows for regression.")
         return
 
+    # Inpute for Regression Range
     max_index = len(df2) - 1
     col1, col2 = st.columns(2)
 
@@ -55,7 +59,9 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
         st.error("Start Index must be less than End Index!")
         return
 
+    # create models for each analyte in the provided range
     regression_lines = []
+    models = []
     skipped = []
     df_regression = df2.iloc[start_index : end_index + 1].copy()
     for analyte in selected:
@@ -63,6 +69,7 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
             model, x_test = lin_reg(df_regression, analyte, 0, len(df_regression) - 1)
             y_pred = model.predict(x_test)
             regression_lines.append((analyte, x_test["Time"].to_numpy(), y_pred.ravel()))
+            models.append(model)
         except ValueError:
             skipped.append(analyte)
         except Exception as err:
@@ -72,7 +79,12 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     if skipped:
         st.warning(f"Skipped regression for: {', '.join(skipped)} (not enough points in range).")
 
+    # Save Plotted Ranges to state
+    _state['regression_lines'] = regression_lines
+    _state['regression_models'] = models
     # Incorporate stash sizing (consistent for both line/scatter)
+
+    #----Plotting---------------------------------
     fig_kwargs = dict(
         width=1200,
         height=500,
@@ -121,6 +133,3 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     )
 
     st.plotly_chart(fig, use_container_width=True)
-    st.divider()
-    st.subheader("Initial Rate")
-    st.caption("Initial rate will be calculated here.")

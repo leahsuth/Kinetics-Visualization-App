@@ -42,6 +42,25 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
 
     hover_opts = {"Time": True, "Concentration": True, "Analyte": True}
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        start_index = st.number_input("Regression Start Index", min_value=0, max_value=df.size)
+    with col2:
+        end_index = st.number_input("Regression End Index", min_value=1, max_value=df.size)
+
+    if start_index >= end_index:
+        st.error("Start Index must be less than End Index!")
+        return
+
+    try:
+        model = lin_reg(df, selected, start_index, end_index)
+        x_test = df[['Time']].iloc[start_index : end_index]
+        y_pred = model.predict(x_test)
+    except Exception as err:
+        st.error(f"Regression Failed: {err}")
+        return
+
     # Incorporate stash sizing (consistent for both line/scatter)
     fig_kwargs = dict(
         width=1200,
@@ -66,6 +85,16 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
             color="Analyte",
             **fig_kwargs,
         )
+
+    fig.add_trace(
+        go.Scatter(
+            x=x_test,
+            y=y_pred,
+            mode='lines',
+            name='Linear Regression',
+            line=dict(color='black', dash='dash', width=3)
+        )
+    )
 
     # Single source of truth for title styling
     fig.update_layout(
@@ -157,7 +186,7 @@ def graph_from_xlsx(df: pd.DataFrame):
         x_test = df[['Time']].iloc[start_index : end_index]
         y_pred = model.predict(x_test)
     except Exception as err:
-        st.error(f"Regression Failed: {e}")
+        st.error(f"Regression Failed: {err}")
         return
 
     # Incorporate stash sizing here too for consistency

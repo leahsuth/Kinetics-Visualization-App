@@ -58,26 +58,40 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     hover_opts = {"Well": True, "Injection_Numbers": True, "RT": True, "Plate_Number": True}
 
+    if len(df) < 2:
+        st.error("Not enough rows for regression.")
+        return
+
+    max_index = len(df) - 1
     col1, col2 = st.columns(2)
 
     with col1:
-        start_index = st.number_input("Regression Start Index", min_value=0, max_value=df.size)
+        start_index = st.number_input("Regression Start Index", min_value=0, max_value=max_index)
     with col2:
-        end_index = st.number_input("Regression End Index", min_value=1, max_value=df.size)
+        end_index = st.number_input("Regression End Index", min_value=1, max_value=max_index)
 
     if start_index >= end_index:
         st.error("Start Index must be less than End Index!")
         return
 
+    regression_lines = []
+    skipped = []
+    df_range = df.iloc[start_index : end_index + 1].copy()
     try:
-        x_test = df[['Time']].iloc[start_index : end_index]
-        model_list = []
         for analyte in select_reactants:
-            model = lin_reg(df, analyte, start_index, end_index)
-            model_list.append(model)
+            df_reactant = df_range[df_range["Reactant"] == analyte]
+            if len(df_reactant) < 2:
+                skipped.append(analyte)
+                continue
+            model, x_test = lin_reg(df_reactant, select_meas, 0, len(df_reactant) - 1)
+            y_pred = model.predict(x_test)
+            regression_lines.append((analyte, x_test, y_pred))
     except Exception as err:
         st.error(f"Regression Failed: {err}")
         return
+
+    if skipped:
+        st.warning(f"Skipped regression for: {', '.join(skipped)} (not enough points in range).")
 
     # Incorporate stash sizing here too for consistency
     fig_kwargs = dict(
@@ -104,15 +118,14 @@ def graph_from_xlsx(df: pd.DataFrame):
             **fig_kwargs,
         )
 
-    for model in model_list:
-        y_pred = model.predict(x_test)
+    for analyte, x_test, y_pred in regression_lines:
         fig.add_trace(
             go.Scatter(
-                x=x_test,
+                x=x_test["Time"],
                 y=y_pred,
-                mode='lines',
-                name='Linear Regression',
-                line=dict(color='black', dash='dash', width=3)
+                mode="lines",
+                name=f"Linear Regression ({analyte})",
+                line=dict(color="black", dash="dash", width=3),
             )
         )
 

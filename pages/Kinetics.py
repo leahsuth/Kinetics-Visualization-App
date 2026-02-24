@@ -1,5 +1,4 @@
 from src.parsing.parsing_data import process_data, standardize_data, add_time
-from src.figures.graphs import graph_from_csv, graph_from_xlsx
 from src.figures.graph_csv import graph_from_csv
 from src.figures.graph_xl import graph_from_xlsx
 import streamlit as st

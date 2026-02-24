@@ -1,7 +1,9 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 from src.parsing.parsing_data import add_time  # keep if used elsewhere; remove if unused
+from src.regression.linear_regression import lin_reg
 
 
 # ----------------------------
@@ -139,6 +141,25 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     hover_opts = {"Well": True, "Injection_Numbers": True, "RT": True, "Plate_Number": True}
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        start_index = st.number_input("Regression Start Index", min_value=0, max_value=df.size)
+    with col2:
+        end_index = st.number_input("Regression End Index", min_value=1, max_value=df.size)
+
+    if start_index >= end_index:
+        st.error("Start Index must be less than End Index!")
+        return
+
+    try:
+        model = lin_reg(df, start_index, end_index)
+        x_test = df[['Time']].iloc[start_index : end_index]
+        y_pred = model.predict(x_test)
+    except Exception as err:
+        st.error(f"Regression Failed: {e}")
+        return
+
     # Incorporate stash sizing here too for consistency
     fig_kwargs = dict(
         width=1200,
@@ -164,6 +185,16 @@ def graph_from_xlsx(df: pd.DataFrame):
             **fig_kwargs,
         )
 
+    fig.add_trace(
+        go.Scatter(
+            x=x_test,
+            y=y_pred,
+            mode='lines',
+            name='Linear Regression',
+            line=dict(color='black', dash='dash', width=3)
+        )
+    )
+
     fig.update_layout(
         title=dict(
             text=f"{select_meas} vs. Time",
@@ -174,6 +205,7 @@ def graph_from_xlsx(df: pd.DataFrame):
             yanchor="top",
         )
     )
+
 
     st.plotly_chart(fig, use_container_width=True)
     st.divider()

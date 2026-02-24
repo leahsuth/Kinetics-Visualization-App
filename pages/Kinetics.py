@@ -7,6 +7,7 @@ from streamlit import session_state as _state
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
+#----File Upload----------------------------------------
 with st.sidebar:
     st.header("Filters")
     uploaded_file = st.file_uploader(
@@ -24,19 +25,24 @@ file_type = uploaded_file.name.split(".")[-1].lower()
 with st.spinner("Loading data..."):
     df = process_data(uploaded_file)
 
+#----Plotting----------------------------------------
 if file_type == "csv":
     df.columns = df.columns.str.strip()
     samples = df["Sample Name"].str[:-4].unique()
     chosen_sample = st.sidebar.selectbox("Choose a sample to plot", samples)
     filtered_df = df[df["Sample Name"].str[:-4] == chosen_sample]
     st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
-    graph_from_csv(filtered_df)
+    try:
+        graph_from_csv(filtered_df)
+    except Exception as e:
+        st.stop() 
 else:
     df = standardize_data(df)
     add_time(df, row=False, col=True)
     st.success(f"Loaded {len(df)} rows from Excel file")
     graph_from_xlsx(df)
 
+#----Initial Rate----------------------------------------
 st.divider()
 st.write("# Initial Rate Calculations")
 
@@ -45,3 +51,10 @@ if 'regression_models' not in _state:
     st.stop()
 
 models = _state['regression_models']
+
+table_data = {
+    "Analyte" : [sample for sample in chosen_sample],
+    "Correlation Coefficients" : [model.coef_.flat[0] for model in models]
+}
+
+st.table(table_data, border='horizontal')

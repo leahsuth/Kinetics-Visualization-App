@@ -6,7 +6,7 @@ Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 import pandas as pd
 from pathlib import Path
 import openpyxl  # needed for excel file -> df
-import parsing_cat_loading_files
+import src.parsing.parsing_cat_loading_files
 
 
 def process_first_line(file_name):
@@ -52,7 +52,7 @@ def process_data(file_name, save_as_csv=False):
         Dataframe with data from provided file
     """
     # Handle both file paths and uploaded file
-    filepath = Path(file_name)
+    filepath = Path(file_name.name)
     ext = filepath.suffix.lower()
     out_path = filepath.with_suffix(".csv")
 

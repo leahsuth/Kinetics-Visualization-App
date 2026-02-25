@@ -82,6 +82,7 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
     # Save Plotted Ranges to state
     _state['regression_lines'] = regression_lines
     _state['regression_models'] = models
+    _state['analytes'] = selected
     # Incorporate stash sizing (consistent for both line/scatter)
 
     #----Plotting---------------------------------

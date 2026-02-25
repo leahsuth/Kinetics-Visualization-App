@@ -17,6 +17,11 @@ with st.sidebar:
         help="Upload a CSV or Excel (ChemStation) kinetics file.",
     )
 
+# Remove state so they don't persist when new files are uploaded
+if 'regression_models' in _state:
+    _state.pop('regression_models')
+    _state.pop('analytes')
+
 if uploaded_file is None:
     st.info("Please Upload a file to begin")
     st.stop()
@@ -34,26 +39,30 @@ if file_type == "csv":
     st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
     try:
         graph_from_csv(filtered_df)
-    except Exception as e:
+    except:
         st.stop() 
 else:
     df = standardize_data(df)
     add_time(df, row=False, col=True)
     st.success(f"Loaded {len(df)} rows from Excel file")
-    graph_from_xlsx(df)
+    try:
+        graph_from_xlsx(df)
+    except:
+        st.stop() 
 
 #----Initial Rate----------------------------------------
 st.divider()
 st.write("# Initial Rate Calculations")
 
 if 'regression_models' not in _state:
-    st.warning('No models uploaded!')
+    st.warning('No models present!')
     st.stop()
 
 models = _state['regression_models']
+analytes = _state['analytes']
 
 table_data = {
-    "Analyte" : [sample for sample in chosen_sample],
+    "Analyte" : [sample for sample in analytes],
     "Correlation Coefficients" : [model.coef_.flat[0] for model in models]
 }
 

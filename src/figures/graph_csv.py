@@ -3,7 +3,6 @@ import streamlit as st
 from streamlit import session_state as _state
 import plotly.express as px
 import plotly.graph_objects as go
-from src.parsing.parsing_data import add_time  # keep if used elsewhere; remove if unused
 from src.regression.linear_regression import lin_reg
 
 def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):

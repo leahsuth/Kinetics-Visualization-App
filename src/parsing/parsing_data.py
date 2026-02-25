@@ -6,7 +6,7 @@ Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 import pandas as pd
 from pathlib import Path
 import openpyxl  # needed for excel file -> df
-import parsing_cat_loading_files
+import src.parsing.parsing_cat_loading_files
 
 
 def process_first_line(file_name):

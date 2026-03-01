@@ -3,10 +3,13 @@ Parse kinetics data from CSV and Excel (ChemStation) files.
 Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 """
 
+import re
 import pandas as pd
 from pathlib import Path
+from typing import Optional
+
 import openpyxl  # needed for excel file -> df
-import parsing_cat_loading_files
+import parsing_initial_input
 
 
 def process_first_line(file_name):
@@ -214,7 +217,7 @@ def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
     cat_df : pandas.DataFrame
         Catalyst-loading dataframe used to determine cols_per_timepoint.
     """
-    cols_per_timepoint = parsing_cat_loading_files.cols_per_timepoint(cat_df)
+    cols_per_timepoint = parsing_initial_input.cols_per_timepoint(cat_df)
 
     parsed = _parse_well_labels(df["Unique_Well_ID"])
 
@@ -240,11 +243,14 @@ def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
     return sorted_df
 
 
-def time_and_rxn(df, cat_df, num_of_reactions, save_as_csv=False):
-    num_of_reactions = parsing_cat_loading_files.num_reactions(cat_df)
+def time_and_rxn(df, cat_df, save_as_csv=False):
+    num_of_reactions = parsing_initial_input.num_reactions(cat_df)
     # Time = time block (0, 1, 2, ...); Reaction = 1..num_of_reactions within each block
-    df["Time"] = df.index // num_of_reactions
+    df["Time_Index"] = df.index // num_of_reactions
     df["Reaction"] = (df.index % num_of_reactions) + 1
+
+    timepoint_map = parsing_initial_input.timepoint_map(cat_df)
+    df["Time"] = df["Time_Index"].map(timepoint_map)
 
     if save_as_csv:
         df.to_csv("time_and_rxn.csv", index=False)
@@ -252,9 +258,28 @@ def time_and_rxn(df, cat_df, num_of_reactions, save_as_csv=False):
     return df
 
 
+def add_initial_input_conditions(df: pd.DataFrame, lookup_df: Optional[pd.DataFrame], save_as_csv: bool = False):
+    """
+    Add any extra conditions from the initial input file to the dataframe.
+    """
+    merged = df.copy()
+    lookup_copy = lookup_df.copy()
+    lookup_copy = lookup_copy.drop(columns=["time", "well"])
+
+    merged = pd.merge(merged, lookup_copy, on="Reaction", how='outer')
+
+    if save_as_csv:
+        merged.to_csv("merged_data.csv", index=False)
+    return merged
+
+
 def standardize_data(df, save_as_csv=False):
     """
     Standardize the data into a long format.
+
+    Only columns whose names contain "__" (ChemStation-style measurement names,
+    e.g. "RT_3__Peak Area") are melted. All other columns are kept as id columns,
+    so user-added note columns are preserved and not melted.
 
     Parameters
     ----------
@@ -262,7 +287,7 @@ def standardize_data(df, save_as_csv=False):
       Dataframe with data from provided file
     save_as_csv : bool
       Saves as CSV if True
-      This is mainly for testing purposes. 
+      This is mainly for testing purposes.
       No need to save as CSV for production.
 
     Returns
@@ -270,20 +295,19 @@ def standardize_data(df, save_as_csv=False):
     df : pandas dataframe
       Dataframe with standardized data
     """
-    # get metadata columns
-    id_cols = [
-        "Reaction",
-        "Plate_Number",  # default to AAA if not provided
-        "Well",
-        "Injection_Numbers",
-        "Sheet_Number",  # which sheet the data is from
-        "Unique_Well_ID",
-        "Time"
-        ]
+    # Id columns = everything that is not a measurement column.
+    # Measurement columns follow "Reactant__Suffix" (e.g. "Product__Peak Area").
+    id_cols = [c for c in df.columns if "__" not in str(c)]
+    value_cols = [c for c in df.columns if "__" in str(c)]
+
 
     # melt the data into a long format
     melted_data = pd.melt(
-        df, id_vars=id_cols, var_name="Measurement", value_name="Value"
+        df,
+        id_vars=id_cols,
+        value_vars=value_cols,
+        var_name="Measurement",
+        value_name="Value",
     )
 
     # Use everything before "__" as the Reactant identifier (e.g. "RT_3__Peak Area" -> "RT_3").
@@ -292,7 +316,7 @@ def standardize_data(df, save_as_csv=False):
         .astype(str)
         .str.extract(r"^(.*?)__", expand=False)
     )
-    melted_data.insert(3, "Reactant", reactant_col)
+    melted_data.insert(len(id_cols), "Reactant", reactant_col)
 
     # remove the "__" from the measurement column so it only contains the suffix (e.g. "Peak Area")
     melted_data["Measurement"] = melted_data["Measurement"].str.replace(
@@ -307,6 +331,10 @@ def standardize_data(df, save_as_csv=False):
 
     # sort the data by Sheet Number and Well
     pivoted_data = pivoted_data.sort_values(by=["Reaction"])
+    pivoted_data.drop(columns=["Time_Index", "Peak RT", "Injection_Numbers",
+                               "Sheet_Number", "Unique_Well_ID",
+                               "Well", "Plate_Number"], inplace=True)
+
     if save_as_csv:
         pivoted_data.to_csv("final_data.csv", index=False)
     return pivoted_data
@@ -322,11 +350,15 @@ if __name__ == "__main__":
         "./data/NB-0123-0005_Cat_Loading_Data.xlsx", True
     )
 
-    df_cat = parsing_cat_loading_files.parse_cat_loading_file(
+    df_cat = parsing_initial_input.parse_cat_loading_file(
         "./data/NB-0123-0005_Cat_Loading_Conditions.xlsx", True
     )
 
     df_sorted = sort_wells_by_time_blocks(df_excel, df_cat, save_as_csv=True)
 
     df_time_and_rxn = time_and_rxn(df_sorted, df_cat, True)
-    df_standardized = standardize_data(df_time_and_rxn, True)
+
+    # Merge conditions directly from the cat-loading DataFrame (well -> reaction, etc.)
+    df_with_initial_input = add_initial_input_conditions(
+        df_time_and_rxn, df_cat, save_as_csv=True)
+    df_standardized = standardize_data(df_with_initial_input, True)

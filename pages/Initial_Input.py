@@ -17,13 +17,20 @@ if str(ROOT) not in sys.path:
 
 from src.page_styling.plate_selector import render_plate_editor_modal, generate_plate_svg  # noqa: E402
 
+try:
+    import cairosvg
+    def _svg_to_png(svg_str: str) -> bytes:
+        return cairosvg.svg2png(bytestring=svg_str.encode())
+except Exception:
+    _svg_to_png = None
+
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1100px; }
+      .block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1200px; }
       h1 { margin-bottom: 0.15rem; }
       div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
       .section-label {
@@ -34,19 +41,32 @@ st.markdown(
         display: inline-block; background: #eef4ff; color: #1a56db;
         border-radius: 20px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600;
       }
+      .step-row {
+        display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0.4rem 0;
+      }
+      .step-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: #1a56db; color: white;
+        font-size: 0.82rem; font-weight: 700; flex-shrink: 0;
+      }
+      .step-title {
+        font-size: 1.05rem; font-weight: 700; color: #1f2937; margin: 0;
+      }
+      .upload-card-label {
+        font-size: 1rem; font-weight: 700; margin-bottom: 2px;
+      }
+      div[data-testid="stButton"]:has(button[key="cta_kinetics"]) button {
+        padding: 18px 24px; font-size: 1.2rem; font-weight: 700;
+        border-radius: 10px; letter-spacing: 0.01em;
+      }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 st.title("Experiment Setup")
-st.caption("Define reactions, timepoints, and conditions — then visualise and edit the plate map.")
-
-PLATE_MODE_OPTIONS = [
-    "Use wells from file",
-    "Auto-assign across (A1→A12, then B1…)",
-    "Auto-assign down (A1→H1, then A2…)",
-]
+st.caption("Upload your conditions and HPLC files, configure reactions, then save to proceed.")
 
 TEMPLATE_COLUMNS = ["Reaction", "Plate_Well", "Timepoint"]
 TEMPLATE_OPTIONAL = ["Ligand", "Catalyst"]
@@ -54,37 +74,15 @@ TEMPLATE_OPTIONAL = ["Ligand", "Catalyst"]
 
 def init_state() -> None:
     st.session_state.setdefault("experiment_setup", {})
-    st.session_state.setdefault("plate_loading_mode", PLATE_MODE_OPTIONS[0])
     st.session_state.setdefault("show_plate_modal", True)
     st.session_state.setdefault("multi_injections", False)
     st.session_state.setdefault("num_injections", 1)
-    st.session_state.setdefault("n_timepoints", 3)
-    st.session_state.setdefault("timepoints", ["0 min", "5 min", "10 min"])
-    st.session_state.setdefault("n_reactions", 3)
-    st.session_state.setdefault("manual_cond_col_names", ["Ligand", "Catalyst"])
-    st.session_state.setdefault("_manual_struct", None)
-    st.session_state.setdefault(
-        "manual_conditions_df",
-        pd.DataFrame(
-            [
-                {"Reaction": "RXN_01", "Plate_Well": "A1", "Ligand": "", "Catalyst": "", "Notes": "None"},
-                {"Reaction": "RXN_02", "Plate_Well": "A2", "Ligand": "", "Catalyst": "", "Notes": "None"},
-                {"Reaction": "RXN_03", "Plate_Well": "A3", "Ligand": "", "Catalyst": "", "Notes": "None"},
-            ]
-        ),
-    )
 
 
 init_state()
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
-
-
-def resize_list(key: str, n: int, fill_value: str = "") -> None:
-    arr = st.session_state.get(key, [])
-    arr = (arr + [fill_value] * max(0, n - len(arr)))[:n]
-    st.session_state[key] = arr
 
 
 def clean_list(vals: List[str]) -> List[str]:
@@ -134,29 +132,12 @@ def normalize_well(well: str) -> Optional[str]:
     return f"{m.group(1)}{int(m.group(2))}"
 
 
-def generate_wells(n: int, mode: str) -> List[str]:
-    rows = list("ABCDEFGH")
-    cols = list(range(1, 13))
-    wells = []
-    if mode.startswith("Auto-assign across"):
-        for r in rows:
-            for c in cols:
-                wells.append(f"{r}{c}")
-    else:
-        for c in cols:
-            for r in rows:
-                wells.append(f"{r}{c}")
-    if n > len(wells):
-        raise ValueError(f"Too many reactions ({n}) for a 96-well plate.")
-    return wells[:n]
-
-
 def excel_template_bytes() -> bytes:
     df = pd.DataFrame(
         [
-            {"Reaction": "1", "Plate_Well": "A1", "Timepoint": "0", "Ligand": "LigA", "Catalyst": "Cat1"},
-            {"Reaction": "2", "Plate_Well": "A2", "Timepoint": "5", "Ligand": "", "Catalyst": "Cat2"},
-            {"Reaction": "", "Plate_Well": "", "Timepoint": "10", "Ligand": "", "Catalyst": ""},
+            {"Reaction": "1", "Plate_Well": "A1", "Timepoint": "0",  "Role": "Reactant", "Ligand": "LigA", "Catalyst": "Cat1"},
+            {"Reaction": "2", "Plate_Well": "A2", "Timepoint": "5",  "Role": "Product",  "Ligand": "",     "Catalyst": "Cat2"},
+            {"Reaction": "",  "Plate_Well": "",   "Timepoint": "10", "Role": "",          "Ligand": "",     "Catalyst": ""},
         ]
     )
     buf = io.BytesIO()
@@ -170,6 +151,7 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     reaction_col = find_col_contains(df.columns, "reaction", "rxn")
     time_col = find_col_contains(df.columns, "timepoint", "time point", "timepoints", "tp")
     well_col = find_col_contains(df.columns, "plate_well", "plate well", "well")
+    role_col = find_col_contains(df.columns, "role", "type")
 
     if reaction_col is None:
         raise ValueError('Missing required column containing "reaction".')
@@ -180,7 +162,7 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     if not timepoints:
         raise ValueError("No usable timepoints found.")
 
-    excluded = {c for c in [reaction_col, time_col, well_col] if c}
+    excluded = {c for c in [reaction_col, time_col, well_col, role_col] if c}
     cond_cols = [
         c for c in df.columns
         if c not in excluded
@@ -201,26 +183,15 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
         # Notes always starts as "None" when empty
         if not str(r.get("Notes", "")).strip():
             r["Notes"] = "None"
+        # Role: read from file if present, default to "Reactant"
+        if role_col:
+            val = str(rxn_meta.loc[i, role_col]).strip()
+            r["Role"] = val if val in ("Reactant", "Product") else "Reactant"
+        else:
+            r["Role"] = "Reactant"
         rows.append(r)
 
     return rows, timepoints, cond_cols
-
-
-def ensure_manual_table_size(n: int, cond_cols: List[str]) -> None:
-    df = st.session_state["manual_conditions_df"].copy()
-    base_cols = ["Reaction", "Plate_Well"] + cond_cols + ["Notes"]
-    for c in base_cols:
-        if c not in df.columns:
-            df[c] = ""
-    df = df[base_cols]
-    rows = df.to_dict(orient="records")
-    new_rows = []
-    for i in range(int(n)):
-        if i < len(rows):
-            new_rows.append(rows[i])
-        else:
-            new_rows.append({**{c: "" for c in base_cols}, "Reaction": f"RXN_{i+1:02d}"})
-    st.session_state["manual_conditions_df"] = pd.DataFrame(new_rows)
 
 
 def build_well_info(reaction_rows: List[dict], cond_cols: List[str]) -> Dict[str, dict]:
@@ -236,15 +207,10 @@ def build_well_info(reaction_rows: List[dict], cond_cols: List[str]) -> Dict[str
     return out
 
 
-def apply_plate_mode(reaction_rows: List[dict], mode: str) -> List[dict]:
+def apply_plate_mode(reaction_rows: List[dict]) -> List[dict]:
     rows = [dict(r) for r in reaction_rows]
-    if mode == "Use wells from file":
-        for r in rows:
-            r["Plate_Well"] = normalize_well(r.get("Plate_Well", "")) or str(r.get("Plate_Well", "")).strip()
-        return rows
-    wells = generate_wells(len(rows), mode)
-    for i, r in enumerate(rows):
-        r["Plate_Well"] = wells[i]
+    for r in rows:
+        r["Plate_Well"] = normalize_well(r.get("Plate_Well", "")) or str(r.get("Plate_Well", "")).strip()
     return rows
 
 
@@ -262,298 +228,247 @@ def finalize_setup(
     return {
         "source": source,
         "num_injections": int(st.session_state["num_injections"]),
-        "plate_loading_mode": st.session_state["plate_loading_mode"],
         "timepoints": timepoints,
         "condition_columns": cond_cols,
         "reaction_rows": reaction_rows,
         "reactions": reactions,
         "well_info": well_info,
         "color_by": color_by,
+        "reaction_roles": {r["Reaction"]: r.get("Role", "Reactant") for r in reaction_rows},
     }
 
 
-# ── top settings bar ───────────────────────────────────────────────────────
+# ── Step 1: Upload files ────────────────────────────────────────────────────
 
+st.markdown(
+    "<div class='step-row'>"
+    "<span class='step-badge'>1</span>"
+    "<span class='step-title'>Upload Files</span>"
+    "</div>",
+    unsafe_allow_html=True,
+)
 
-with st.container(border=True):
-    c1, c2, c3 = st.columns([2.5, 1.0, 1.5])
+col_cond, col_hplc = st.columns(2, gap="large")
 
-    with c1:
-        st.markdown("<div class='section-label'>Well assignment</div>", unsafe_allow_html=True)
-        st.session_state["plate_loading_mode"] = st.selectbox(
-            "plate_loading_mode",
-            options=PLATE_MODE_OPTIONS,
-            index=PLATE_MODE_OPTIONS.index(st.session_state["plate_loading_mode"]),
-            label_visibility="collapsed",
-        )
-        st.caption(
-            "**Use wells from file** (default) reads well positions from your Excel. "
-            "Auto-assign fills wells sequentially."
-        )
+with col_cond:
+    with st.container(border=True):
+        st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
+        st.caption("Reactions, wells, timepoints, and roles.")
 
-    with c2:
-        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
-        st.session_state["show_plate_modal"] = st.toggle(
-            "Enable", value=bool(st.session_state["show_plate_modal"])
-        )
-
-    with c3:
-        st.markdown("<div class='section-label'>Injections</div>", unsafe_allow_html=True)
-        st.session_state["multi_injections"] = st.checkbox(
-            "More than one injection?",
-            value=bool(st.session_state["multi_injections"]),
-        )
-        if st.session_state["multi_injections"]:
-            st.session_state["num_injections"] = st.number_input(
-                "Number of injections",
-                min_value=2, max_value=100,
-                value=max(2, int(st.session_state.get("num_injections", 2))),
-                step=1,
-                label_visibility="collapsed",
-            )
-        else:
-            st.session_state["num_injections"] = 1
-            st.markdown("<span class='info-pill'>1 injection</span>", unsafe_allow_html=True)
-
-
-# ── input section ──────────────────────────────────────────────────────────
-
-
-with st.container(border=True):
-    # Manual entry option commented out; only Excel upload is available.
-    mode = st.radio("Input method", options=["Upload Excel"], horizontal=True)  # "Manual entry" commented out
-
-    # ── Excel upload ──────────────────────────────────────────────────────
-    if mode == "Upload Excel":
-        st.markdown(
-            "> **Getting started:** Download the template below, fill it in, then re-upload. "
-            "Or upload your own Excel — any extra columns are treated as condition fields automatically.",
-            unsafe_allow_html=False,
-        )
-
-        dl_col, info_col = st.columns([1, 1])
+        dl_col, guide_col = st.columns([1, 1])
         with dl_col:
             st.download_button(
-                label="Download template (.xlsx)",
+                label="Download template",
                 data=excel_template_bytes(),
                 file_name="experiment_template.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
-        with info_col:
-            with st.expander("Template column guide", expanded=False):
+        with guide_col:
+            with st.popover("Column guide", use_container_width=True):
                 st.markdown(
                     "| Column | Required? | Notes |\n"
                     "|---|---|---|\n"
                     "| **Reaction** | Yes | Unique reaction ID |\n"
                     "| **Timepoint** | Yes | One row per timepoint |\n"
-                    "| **Plate_Well** | If using 'wells from file' | e.g. A1, B3 |\n"
-                    "| Ligand, Catalyst, … | Optional | Any extra columns become conditions |"
+                    "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
+                    "| **Role** | Optional | Reactant or Product |\n"
+                    "| Ligand, Catalyst… | Optional | Extra condition columns |"
                 )
 
-        uploaded = st.file_uploader("Upload completed template (.xlsx)", type=["xlsx"])
-
+        uploaded = st.file_uploader(
+            "Upload conditions (.xlsx)",
+            type=["xlsx"],
+            label_visibility="collapsed",
+        )
         if uploaded is not None:
-            try:
-                df = pd.read_excel(uploaded)
-                # Store raw Excel for data processing elsewhere (e.g. other pages or scripts)
-                st.session_state["uploaded_excel_df"] = df
-                if df.empty:
-                    st.error("This Excel file appears to be empty.")
-                    st.stop()
-                reaction_rows, timepoints, cond_cols = parse_excel(df)
-                reaction_rows = apply_plate_mode(reaction_rows, st.session_state["plate_loading_mode"])
-            except Exception as e:
-                st.error(str(e))
-                st.stop()
+            st.success(f"Loaded: {uploaded.name}")
 
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Reactions", len(reaction_rows))
-            m2.metric("Timepoints", len(timepoints))
-            m3.metric("Injections", int(st.session_state["num_injections"]))
+with col_hplc:
+    with st.container(border=True):
+        st.markdown("<div class='upload-card-label'>HPLC Data</div>", unsafe_allow_html=True)
+        st.caption("ChemStation Excel export for the Kinetics page.")
 
-            if cond_cols:
-                st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
+        hplc_file = st.file_uploader(
+            "Upload HPLC data (.xlsx)",
+            type=["xlsx"],
+            key="hplc_uploader",
+            label_visibility="collapsed",
+        )
+        if hplc_file is not None:
+            st.session_state["hplc_file_bytes"] = hplc_file.read()
+            st.session_state["hplc_file_name"] = hplc_file.name
+            st.success(f"Loaded: {hplc_file.name}")
+        elif st.session_state.get("hplc_file_name"):
+            st.info(f"Using: {st.session_state['hplc_file_name']}")
 
-            color_choices = ["Reaction"] + cond_cols
-            color_by = st.selectbox(
-                "Color wells by",
-                options=color_choices,
-                index=0,
-                key="excel_color_by",
-                help="Choose which field drives well colors in the plate map.",
+
+# ── Step 2: Configure (only shown after conditions file is uploaded) ─────────
+
+if uploaded is not None:
+    try:
+        df = pd.read_excel(uploaded)
+        st.session_state["uploaded_excel_df"] = df
+        if df.empty:
+            st.error("This Excel file appears to be empty.")
+            st.stop()
+        reaction_rows, timepoints, cond_cols = parse_excel(df)
+        reaction_rows = apply_plate_mode(reaction_rows)
+    except Exception as e:
+        st.error(str(e))
+        st.stop()
+
+    hplc_ready = bool(st.session_state.get("hplc_file_bytes"))
+    if hplc_ready:
+        st.info(
+            "Both files uploaded. **Review your experiment configuration below and click Save setup** when ready to proceed to the Kinetics page.",
+            icon="👇",
+        )
+    else:
+        st.info(
+            "Conditions file uploaded. **Review your experiment configuration below, upload your HPLC data above, then click Save setup** to proceed.",
+            icon="👇",
+        )
+
+    st.markdown(
+        "<div class='step-row'>"
+        "<span class='step-badge'>2</span>"
+        "<span class='step-title'>Review & Configure</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        cfg_left, cfg_right = st.columns([1, 1.5])
+
+        with cfg_left:
+            st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
+            st.session_state["show_plate_modal"] = st.toggle(
+                "Enable", value=bool(st.session_state["show_plate_modal"])
             )
 
-            with st.expander("Preview reaction table", expanded=False):
-                st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
+        with cfg_right:
+            st.markdown("<div class='section-label'>Injections</div>", unsafe_allow_html=True)
+            st.session_state["multi_injections"] = st.checkbox(
+                "More than one injection?",
+                value=bool(st.session_state["multi_injections"]),
+            )
+            if st.session_state["multi_injections"]:
+                st.session_state["num_injections"] = st.number_input(
+                    "Number of injections",
+                    min_value=2, max_value=100,
+                    value=max(2, int(st.session_state.get("num_injections", 2))),
+                    step=1,
+                    label_visibility="collapsed",
+                )
+            else:
+                st.session_state["num_injections"] = 1
+                st.markdown("<span class='info-pill'>1 injection</span>", unsafe_allow_html=True)
 
-            if st.session_state["show_plate_modal"]:
-                base_info = build_well_info(reaction_rows, cond_cols)
-                with st.container(border=True):
-                    well_info_excel = render_plate_editor_modal(
-                        base_info,
-                        title="Plate Map",
-                        key_prefix="excel_plate",
-                        n_items=len(reaction_rows),
-                        color_by=color_by,
-                    )
-                    st.session_state["excel_plate_well_info"] = well_info_excel
-                    svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
-                    st.download_button(
-                        "Download plate image (.svg)",
-                        data=svg,
-                        file_name="plate_map.svg",
-                        mime="image/svg+xml",
-                        use_container_width=True,
-                        key="excel_dl_svg",
-                    )
+        if cond_cols:
+            st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
 
-            st.divider()
-            if st.button("Save setup", type="primary", use_container_width=True, key="excel_save"):
-                well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
-                updated_rows = [well_info.get(r.get("Plate_Well", ""), dict(r)) for r in reaction_rows]
-                # Default Notes to "None" when empty / missing
-                for r in updated_rows:
-                    if not str(r.get("Notes", "")).strip():
-                        r["Notes"] = "None"
+    color_choices = ["Reaction"] + cond_cols
+    color_by = st.selectbox(
+        "Color wells by",
+        options=color_choices,
+        index=0,
+        key="excel_color_by",
+        help="Choose which field drives well colors in the plate map.",
+    )
 
-                # 1) Save the setup dict (expects list[dict], not a DataFrame)
-                st.session_state["experiment_setup"] = finalize_setup(
-                    "excel", updated_rows, timepoints, cond_cols, well_info, color_by
+    with st.expander("Preview reaction table", expanded=False):
+        st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
+
+    if st.session_state["show_plate_modal"]:
+        base_info = build_well_info(reaction_rows, cond_cols)
+        with st.container(border=True):
+            well_info_excel = render_plate_editor_modal(
+                base_info,
+                title="Plate Map",
+                key_prefix="excel_plate",
+                n_items=len(reaction_rows),
+                color_by=color_by,
+            )
+            st.session_state["excel_plate_well_info"] = well_info_excel
+            svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
+            if _svg_to_png:
+                st.download_button(
+                    "Download plate image (.png)",
+                    data=_svg_to_png(svg),
+                    file_name="plate_map.png",
+                    mime="image/png",
+                    use_container_width=True,
+                    key="excel_dl_png",
+                )
+            else:
+                st.download_button(
+                    "Download plate image (.svg)",
+                    data=svg,
+                    file_name="plate_map.svg",
+                    mime="image/svg+xml",
+                    use_container_width=True,
+                    key="excel_dl_svg",
                 )
 
-                # 2) Save a per-reaction annotations table
-                rxn_df = pd.DataFrame(updated_rows)  # one row per Reaction, even if Notes is empty
-                st.session_state["experiment_setup_df"] = rxn_df
+    # ── Step 3: Save & Proceed ─────────────────────────────────────────────
+    st.markdown(
+        "<div class='step-row'>"
+        "<span class='step-badge'>3</span>"
+        "<span class='step-title'>Save & Proceed</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-                # 3) Save the full uploaded Excel (all timepoints) with annotations merged in
-                raw_df = st.session_state.get("uploaded_excel_df")
-                if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
-                    raw_df_norm = parsing_initial_input._normalize_cat_loading_df(raw_df)
-                    rxn_df_norm = parsing_initial_input._normalize_cat_loading_df(rxn_df)
+    save_clicked = st.button("Save setup", type="primary", use_container_width=True, key="excel_save")
 
-                    # Drop the annotation-side well so only the positional well remains
-                    rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
+    if save_clicked:
+        well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
+        updated_rows = [well_info.get(r.get("Plate_Well", ""), dict(r)) for r in reaction_rows]
+        role_lookup = {r["Reaction"]: r.get("Role", "Reactant") for r in reaction_rows}
+        for r in updated_rows:
+            if not str(r.get("Notes", "")).strip():
+                r["Notes"] = "None"
+            r.setdefault("Role", role_lookup.get(r.get("Reaction", ""), "Reactant"))
 
-                    annotated_df = raw_df_norm.merge(
-                        rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
-                    )
-                    st.session_state["cat_loading_df"] = annotated_df
-                st.success("Setup saved.")
+        st.session_state["experiment_setup"] = finalize_setup(
+            "excel", updated_rows, timepoints, cond_cols, well_info, color_by
+        )
 
-    # ── Manual entry (commented out) ────────────────────────────────────────
-    # else:
-    #     with st.expander("Condition columns", expanded=True):
-    #         st.caption("Define custom column names. Click + / − to add or remove columns.")
-    #         col_names: List[str] = list(st.session_state["manual_cond_col_names"])
-    #         btn_l, btn_r, _ = st.columns([1, 1, 5])
-    #         if btn_l.button("＋ Add column", key="add_cond_col"):
-    #             col_names.append(f"Condition {len(col_names) + 1}")
-    #         if btn_r.button("− Remove last", key="rm_cond_col", disabled=len(col_names) == 0):
-    #             col_names = col_names[:-1]
-    #         if col_names:
-    #             name_inputs = st.columns(min(len(col_names), 4))
-    #             for i, name in enumerate(col_names):
-    #                 with name_inputs[i % 4]:
-    #                     col_names[i] = st.text_input(
-    #                         f"Col {i + 1}", value=name,
-    #                         key=f"cond_col_name_{i}", placeholder=f"e.g. Ligand",
-    #                     )
-    #         seen_names: set = set()
-    #         deduped: List[str] = []
-    #         for n in col_names:
-    #             n = n.strip() or f"Column_{len(deduped)+1}"
-    #             if n not in seen_names:
-    #                 seen_names.add(n)
-    #                 deduped.append(n)
-    #         col_names = deduped
-    #         st.session_state["manual_cond_col_names"] = col_names
-    #     cond_cols = col_names
-    #     left, right = st.columns([1, 2])
-    #     with left:
-    #         st.session_state["n_reactions"] = int(
-    #             st.number_input("Reactions", min_value=1, max_value=200,
-    #                             value=int(st.session_state["n_reactions"]), step=1)
-    #         )
-    #         st.session_state["n_timepoints"] = int(
-    #             st.number_input("Timepoints", min_value=1, max_value=200,
-    #                             value=int(st.session_state["n_timepoints"]), step=1)
-    #     with right:
-    #         st.markdown("**Global timepoints**")
-    #         resize_list("timepoints", st.session_state["n_timepoints"], "")
-    #         tp_cols = st.columns(min(st.session_state["n_timepoints"], 4))
-    #         for i in range(st.session_state["n_timepoints"]):
-    #             with tp_cols[i % 4]:
-    #                 st.session_state["timepoints"][i] = st.text_input(
-    #                     f"TP {i+1}", value=st.session_state["timepoints"][i],
-    #                     placeholder="e.g. 0 min", key=f"tp_input_{i}",
-    #                 )
-    #     current_struct = (int(st.session_state["n_reactions"]), tuple(cond_cols))
-    #     if st.session_state.get("_manual_struct") != current_struct:
-    #         ensure_manual_table_size(st.session_state["n_reactions"], cond_cols)
-    #         st.session_state["_manual_struct"] = current_struct
-    #     edited = st.data_editor(
-    #         st.session_state["manual_conditions_df"],
-    #         use_container_width=True, hide_index=True, num_rows="fixed",
-    #         key="manual_data_editor",
-    #     )
-    #     st.session_state["manual_conditions_df"] = edited.copy()
-    #     timepoints = unique_preserve_order(clean_list(st.session_state["timepoints"]))
-    #     reaction_rows = apply_plate_mode(edited.to_dict(orient="records"), st.session_state["plate_loading_mode"])
-    #     color_choices = ["Reaction"] + cond_cols
-    #     color_by = st.selectbox(
-    #         "Color wells by", options=color_choices, index=0,
-    #         key="manual_color_by", help="Choose which field drives well colors in the plate map.",
-    #     )
-    #     if st.session_state["show_plate_modal"]:
-    #         base_info = build_well_info(reaction_rows, cond_cols)
-    #         with st.container(border=True):
-    #             well_info_manual = render_plate_editor_modal(
-    #                 base_info, title="Plate Map", key_prefix="manual_plate",
-    #                 n_items=len(reaction_rows), color_by=color_by,
-    #             )
-    #             st.session_state["manual_plate_well_info"] = well_info_manual
-    #             svg = generate_plate_svg(well_info_manual, color_by, len(reaction_rows))
-    #             st.download_button(
-    #                 "Download plate image (.svg)", data=svg, file_name="plate_map.svg",
-    #                 mime="image/svg+xml", use_container_width=True, key="manual_dl_svg",
-    #             )
-    #     st.divider()
-    #     if st.button("Save setup", type="primary", use_container_width=True, key="manual_save"):
-    #         if len(timepoints) != st.session_state["n_timepoints"]:
-    #             st.error("Fill in all timepoints before saving.")
-    #             st.stop()
-    #         well_info = st.session_state.get("manual_plate_well_info") or build_well_info(reaction_rows, cond_cols)
-    #         updated_rows = [well_info.get(r.get("Plate_Well", ""), dict(r)) for r in reaction_rows]
-    #         st.session_state["experiment_setup"] = finalize_setup(
-    #             "manual", updated_rows, timepoints, cond_cols, well_info, color_by
-    #         )
-    #         st.success("Setup saved.")
+        rxn_df = pd.DataFrame(updated_rows)
+        st.session_state["experiment_setup_df"] = rxn_df
 
-# ── saved setup summary ────────────────────────────────────────────────────
+        raw_df = st.session_state.get("uploaded_excel_df")
+        if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
+            raw_df_norm = parsing_initial_input._normalize_cat_loading_df(raw_df)
+            rxn_df_norm = parsing_initial_input._normalize_cat_loading_df(rxn_df)
+            rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
+            annotated_df = raw_df_norm.merge(
+                rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
+            )
+            st.session_state["cat_loading_df"] = annotated_df
+        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
+
+# ── Saved setup summary ────────────────────────────────────────────────────
 
 setup = st.session_state.get("experiment_setup") or {}
 
 if setup:
+    st.divider()
     with st.container(border=True):
-        st.subheader("Saved setup")
+        st.markdown("**Saved Setup**")
         a, b, c, d = st.columns(4)
-        a.metric("Source", setup.get("source", "—").capitalize())
-        b.metric("Reactions", len(setup.get("reaction_rows", [])))
-        c.metric("Timepoints", len(setup.get("timepoints", [])))
-        d.metric("Injections", int(setup.get("num_injections", 1)))
+        a.metric("Reactions", len(setup.get("reaction_rows", [])))
+        b.metric("Timepoints", len(setup.get("timepoints", [])))
+        c.metric("Injections", int(setup.get("num_injections", 1)))
+        hplc_name = st.session_state.get("hplc_file_name", "—")
+        d.metric("HPLC File", hplc_name if hplc_name else "—")
 
-        if setup.get("well_info"):
-            col_by = setup.get("color_by", "Reaction")
-            svg = generate_plate_svg(setup["well_info"], col_by, len(setup.get("reaction_rows", [])) or 1)
-            st.download_button(
-                "Download plate image (.svg)",
-                data=svg,
-                file_name="plate_map_saved.svg",
-                mime="image/svg+xml",
-                use_container_width=True,
-                key="saved_dl_svg",
-            )
-else:
-    st.caption("No setup saved yet.")
+        if st.button(
+            "📈  Visualize data and initial rates →",
+            type="primary",
+            use_container_width=True,
+            key="cta_kinetics",
+        ):
+            st.switch_page("pages/Kinetics.py")

@@ -29,6 +29,15 @@ def _normalize_cat_loading_df(df: pd.DataFrame) -> pd.DataFrame:
         if "well" in c.lower():
             new_cols[c] = "well"
     df = df.rename(columns=new_cols)
+
+    rxn_num = (
+        df["Reaction"]
+        .astype(str)
+        .str.extract(r"(\d+)", expand=False)  # take first group of digits
+    )
+    # Convert to integer; rows without digits become NA
+    df["Reaction"] = pd.to_numeric(rxn_num, errors="coerce").astype("Int64")
+
     return df
 
 

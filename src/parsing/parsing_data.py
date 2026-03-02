@@ -16,19 +16,54 @@ def process_first_line(file_name):
     """
     Extract the first row/line of a file for description/metadata.
     Handles CSV (text) and Excel (.xlsx, .xls) files.
+
+    Parameters
+    ----------
+    file_name : str, Path, or file-like
+        Path to file or a file-like object (e.g. Streamlit UploadedFile with a
+        .name attribute). For file-like objects we reset the stream position
+        before reading.
     """
-    filepath = Path(file_name)
-    ext = filepath.suffix.lower()
+    # Normalize to get an extension while preserving the original object
+    if isinstance(file_name, (str, Path)):
+        filepath = Path(file_name)
+        ext = filepath.suffix.lower()
+        file_obj = file_name
+    else:
+        fname = getattr(file_name, "name", None)
+        if not fname:
+            raise TypeError(
+                "file_name must be a path or a file-like object with a .name attribute"
+            )
+        filepath = Path(fname)
+        ext = filepath.suffix.lower()
+        file_obj = file_name
 
     if ext == ".csv":
-        with open(file_name, "r", encoding="utf-8") as f:
-            return f.readline()
+        # For real paths, just open the file
+        if isinstance(file_obj, (str, Path)):
+            with open(file_obj, "r", encoding="utf-8") as f:
+                return f.readline()
+        # For file-like objects, read the first line from the stream
+        try:
+            file_obj.seek(0)
+        except Exception:
+            pass
+        first_line = file_obj.readline()
+        if isinstance(first_line, bytes):
+            first_line = first_line.decode("utf-8", errors="ignore")
+        return first_line
 
     if ext in (".xlsx", ".xls"):
         engine = "openpyxl" if ext == ".xlsx" else "xlrd"
+        # Both paths and file-like objects are supported by pandas.read_excel
+        try:
+            file_obj.seek(0)
+        except Exception:
+            pass
         df = pd.read_excel(
-            file_name, sheet_name=0, header=None, nrows=1, engine=engine
-            )
+            file_obj, sheet_name=0, header=None, nrows=1, engine=engine
+        )
         return df.iloc[0].astype(str).str.cat(sep=", ")
 
     raise ValueError(f"Unsupported file type: {ext}")
@@ -365,10 +400,10 @@ def standardize_data(df, save_as_csv=False):
 
     # sort the data by Reaction
     pivoted_data = pivoted_data.sort_values(by=["Reaction"])
-    # Drop internal/plate columns if present ("Peak RT" is not a column name)
+    # Drop internal/plate columns
     drop_candidates = [
         "Time_Index", "Injection_Numbers", "Sheet_Number", "Unique_Well_ID",
-        "Well", "Plate_Number",
+        "Well", "Plate_Number", "peak_rt"
     ]
     pivoted_data = pivoted_data.drop(
         columns=[c for c in drop_candidates if c in pivoted_data.columns],
@@ -403,7 +438,7 @@ if __name__ == "__main__":
 
     df_time_and_rxn = time_and_rxn(df_sorted, df_cat, True)
 
-    # Merge conditions directly from the cat-loading DataFrame (well -> reaction, etc.)
+    # Merge conditions directly from the cat-loading DataFrame
     df_with_initial_input = add_initial_input_conditions(
         df_time_and_rxn, df_cat, save_as_csv=True)
     df_standardized = standardize_data(df_with_initial_input, True)

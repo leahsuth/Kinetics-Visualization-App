@@ -5,28 +5,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from src.regression.linear_regression import lin_reg
 
-def graph_from_xlsx(df: pd.DataFrame):
+def graph_from_xlsx(df: pd.DataFrame, analytes: list):
     #----Initial Plotting---------------------------------
     if "Time" not in df.columns or "Reactant" not in df.columns:
         st.error("Required columns (Time, Reactant) are missing.")
         return
 
-    sample_col = "Reaction" if "Reaction" in df.columns else "Sample"
-    if sample_col in df.columns:
-        samples = df[sample_col].unique()
-        selected_samples = st.multiselect(
-            "Select samples to plot",
-            samples,
-            default=list(samples) if len(samples) <= 10 else list(samples[:5]),
-        )
-        if not selected_samples:
-            st.warning("Please select at least one sample.")
-            return
-        df = df[df[sample_col].isin(selected_samples)]
-
-    reactants = df["Reactant"].unique()
-    select_reactants = st.multiselect("Select reactants to plot", reactants, default=list(reactants))
-    df = df[df["Reactant"].isin(select_reactants)]
+    df = df[df["Reactant"].isin(analytes)]
 
     metadata_cols = [
         sample_col,
@@ -59,46 +44,6 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     hover_opts = {"Well": True, "Injection_Numbers": True, "RT": True, "Plate_Number": True}
 
-    #----Regression---------------------------------
-    if len(df) < 2:
-        st.error("Not enough rows for regression.")
-        return
-
-    max_index = len(df) - 1
-    col1, col2 = st.columns(2)
-
-    with col1:
-        start_index = st.number_input("Regression Start Index", min_value=0, max_value=max_index)
-    with col2:
-        end_index = st.number_input("Regression End Index", min_value=1, max_value=max_index)
-
-    if start_index >= end_index:
-        st.error("Start Index must be less than End Index!")
-        raise ValueError("start_index greater than end_index")
-
-    regression_lines = []
-    models = []
-    skipped = []
-    df_regression = df.iloc[start_index : end_index + 1].copy()
-    for analyte in select_reactants:
-        try:
-            model, x_test = lin_reg(df_regression, select_meas, 0, len(df_regression) - 1)
-            y_pred = model.predict(x_test)
-            regression_lines.append((analyte, x_test, y_pred.ravel()))
-            models.append(model)
-        except ValueError:
-            skipped.append(analyte)
-        except Exception as err:
-            st.error(f"Regression Failed: {err}")
-            return
-
-    if skipped:
-        st.warning(f"Skipped regression for: {', '.join(skipped)} (not enough points in range).")
-
-    # Save Plotted Ranges to state
-    _state['regression_lines'] = regression_lines
-    _state['regression_models'] = models
-    _state['analytes'] = select_reactants
 
     #----Plotting---------------------------------
     # Incorporate stash sizing here too for consistency

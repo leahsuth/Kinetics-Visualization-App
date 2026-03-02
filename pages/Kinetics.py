@@ -18,10 +18,6 @@ with st.sidebar:
         help="Upload a CSV or Excel (ChemStation) kinetics file.",
     )
 
-# Remove state so they don't persist when new files are uploaded
-if 'regression_models' in _state:
-    _state.pop('regression_models')
-    _state.pop('analytes')
 
 if uploaded_file is None:
     st.info("Please Upload a file to begin")
@@ -31,23 +27,43 @@ file_type = uploaded_file.name.split(".")[-1].lower()
 with st.spinner("Loading data..."):
     df = process_data(uploaded_file)
 
-#----Plotting----------------------------------------
+
+#----Plotting / Analyte Selection----------------------------------------
 if file_type == "csv":
+    analytes = st.multiselect("Select an analyte", df.drop(columns=['Sample Name', 'Time']).columns)
+
+    if len(analytes) == 0:
+        st.warning("Please select at least one analyte to plot.")
+        st.stop()
     df.columns = df.columns.str.strip()
     samples = df["Sample Name"].str[:-4].unique()
     chosen_sample = st.sidebar.selectbox("Choose a sample to plot", samples)
     filtered_df = df[df["Sample Name"].str[:-4] == chosen_sample]
     st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
     try:
-        graph_from_csv(filtered_df)
-    except:
+        graph_from_csv(filtered_df, analytes)
+    except Exception as err:
+        st.error(f"Error plotting data: {err}")
         st.stop() 
 else:
     df = standardize_data(df)
-    add_time(df, row=False, col=True)
     st.success(f"Loaded {len(df)} rows from Excel file")
+    sample_col = "Reaction" if "Reaction" in df.columns else "Sample"
+    if sample_col in df.columns:
+        samples = df[sample_col].unique()
+        selected_samples = st.multiselect(
+            "Select samples to plot",
+            samples,
+            default=list(samples) if len(samples) <= 10 else list(samples[:5]),
+        )
+        if not selected_samples:
+            st.warning("Please select at least one sample.")
+            st.stop()
+
+    reactants = df["Reactant"].unique()
+    select_reactants = st.multiselect("Select reactants to plot", reactants, default=list(reactants))
     try:
-        graph_from_xlsx(df)
+        graph_from_xlsx(df, analytes)
     except:
         st.stop() 
 
@@ -55,19 +71,6 @@ else:
 st.divider()
 st.write("# Initial Rate Calculations")
 
-if 'regression_models' not in _state:
-    st.warning('No models present!')
-    st.stop()
-
-models = _state['regression_models']
-analytes = _state['analytes']
-
-table_data = {
-    "Analyte" : [sample for sample in analytes],
-    "Correlation Coefficients" : [model.coef_.flat[0] for model in models]
-}
-
-st.table(table_data, border='horizontal')
 
 rate = rate_information(df, analytes)
 st.write(rate)

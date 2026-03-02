@@ -3,29 +3,67 @@ Parse kinetics data from CSV and Excel (ChemStation) files.
 Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 """
 
+import re
 import pandas as pd
 from pathlib import Path
+from typing import Optional
+
 import openpyxl  # needed for excel file -> df
-import src.parsing.parsing_cat_loading_files
+from src.parsing import parsing_initial_input
 
 
 def process_first_line(file_name):
     """
     Extract the first row/line of a file for description/metadata.
     Handles CSV (text) and Excel (.xlsx, .xls) files.
+
+    Parameters
+    ----------
+    file_name : str, Path, or file-like
+        Path to file or a file-like object (e.g. Streamlit UploadedFile with a
+        .name attribute). For file-like objects we reset the stream position
+        before reading.
     """
-    filepath = Path(file_name)
-    ext = filepath.suffix.lower()
+    # Normalize to get an extension while preserving the original object
+    if isinstance(file_name, (str, Path)):
+        filepath = Path(file_name)
+        ext = filepath.suffix.lower()
+        file_obj = file_name
+    else:
+        fname = getattr(file_name, "name", None)
+        if not fname:
+            raise TypeError(
+                "file_name must be a path or a file-like object with a .name attribute"
+            )
+        filepath = Path(fname)
+        ext = filepath.suffix.lower()
+        file_obj = file_name
 
     if ext == ".csv":
-        with open(file_name, "r", encoding="utf-8") as f:
-            return f.readline()
+        # For real paths, just open the file
+        if isinstance(file_obj, (str, Path)):
+            with open(file_obj, "r", encoding="utf-8") as f:
+                return f.readline()
+        # For file-like objects, read the first line from the stream
+        try:
+            file_obj.seek(0)
+        except Exception:
+            pass
+        first_line = file_obj.readline()
+        if isinstance(first_line, bytes):
+            first_line = first_line.decode("utf-8", errors="ignore")
+        return first_line
 
     if ext in (".xlsx", ".xls"):
         engine = "openpyxl" if ext == ".xlsx" else "xlrd"
+        # Both paths and file-like objects are supported by pandas.read_excel
+        try:
+            file_obj.seek(0)
+        except Exception:
+            pass
         df = pd.read_excel(
-            file_name, sheet_name=0, header=None, nrows=1, engine=engine
-            )
+            file_obj, sheet_name=0, header=None, nrows=1, engine=engine
+        )
         return df.iloc[0].astype(str).str.cat(sep=", ")
 
     raise ValueError(f"Unsupported file type: {ext}")
@@ -214,7 +252,7 @@ def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
     cat_df : pandas.DataFrame
         Catalyst-loading dataframe used to determine cols_per_timepoint.
     """
-    cols_per_timepoint = parsing_cat_loading_files.cols_per_timepoint(cat_df)
+    cols_per_timepoint = parsing_initial_input.cols_per_timepoint(cat_df)
 
     parsed = _parse_well_labels(df["Unique_Well_ID"])
 
@@ -240,11 +278,21 @@ def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
     return sorted_df
 
 
-def time_and_rxn(df, cat_df, num_of_reactions, save_as_csv=False):
-    num_of_reactions = parsing_cat_loading_files.num_reactions(cat_df)
+def time_and_rxn(df, cat_df, save_as_csv=False):
+    timepoint_map = parsing_initial_input.timepoint_map(cat_df)
+    num_time_blocks = max(len(timepoint_map), 1)
+    # Use the larger of: data-derived count, or setup-derived count.
+    # So we never collapse to 1 reaction when the setup only lists the one you edited.
+    from_data = len(df) // num_time_blocks
+    from_setup = parsing_initial_input.num_reactions(cat_df) or 0
+    num_of_reactions = max(from_data, from_setup)
+    if num_of_reactions <= 0:
+        num_of_reactions = 1
     # Time = time block (0, 1, 2, ...); Reaction = 1..num_of_reactions within each block
-    df["Time"] = df.index // num_of_reactions
+    df["Time_Index"] = df.index // num_of_reactions
     df["Reaction"] = (df.index % num_of_reactions) + 1
+
+    df["Time"] = df["Time_Index"].map(timepoint_map)
 
     if save_as_csv:
         df.to_csv("time_and_rxn.csv", index=False)
@@ -252,9 +300,32 @@ def time_and_rxn(df, cat_df, num_of_reactions, save_as_csv=False):
     return df
 
 
+def add_initial_input_conditions(df: pd.DataFrame, lookup_df: Optional[pd.DataFrame], save_as_csv: bool = False):
+    """
+    Add any extra conditions from the initial input file to the dataframe.
+    Keeps one row per reaction from the lookup so the merge is many-to-one and
+    we don't blow up rows or add duplicate time columns that break standardize_data.
+    """
+    merged = df.copy()
+    lookup_copy = lookup_df.copy()
+    lookup_copy = lookup_copy.drop(columns=["time", "well"], errors="ignore")
+    # One row per reaction so merge is many-to-one (no row explosion, no duplicate time col)
+    lookup_copy = lookup_copy.drop_duplicates(subset=["Reaction"], keep="first")
+
+    merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
+
+    if save_as_csv:
+        merged.to_csv("merged_data.csv", index=False)
+    return merged
+
+
 def standardize_data(df, save_as_csv=False):
     """
     Standardize the data into a long format.
+
+    Only columns whose names contain "__" (ChemStation-style measurement names,
+    e.g. "RT_3__Peak Area") are melted. All other columns are kept as id columns,
+    so user-added note columns are preserved and not melted.
 
     Parameters
     ----------
@@ -262,7 +333,7 @@ def standardize_data(df, save_as_csv=False):
       Dataframe with data from provided file
     save_as_csv : bool
       Saves as CSV if True
-      This is mainly for testing purposes. 
+      This is mainly for testing purposes.
       No need to save as CSV for production.
 
     Returns
@@ -270,20 +341,34 @@ def standardize_data(df, save_as_csv=False):
     df : pandas dataframe
       Dataframe with standardized data
     """
-    # get metadata columns
-    id_cols = [
-        "Reaction",
-        "Plate_Number",  # default to AAA if not provided
-        "Well",
-        "Injection_Numbers",
-        "Sheet_Number",  # which sheet the data is from
-        "Unique_Well_ID",
-        "Time"
-        ]
+    # Deduplicate columns by lowercased name (keep first). After merge we can have
+    # both "Reaction" and "reaction"; pivot then collapses 32 reactions to 1.
+    seen_lower = {}
+    dedup_cols = []
+    for c in df.columns:
+        cl = str(c).lower()
+        if cl not in seen_lower:
+            seen_lower[cl] = c
+            dedup_cols.append(c)
+    df = df[dedup_cols].copy()
+
+    # Id columns = everything that is not a measurement column.
+    # Measurement columns follow "Reactant__Suffix" (e.g. "Product__Peak Area").
+    id_cols = [c for c in df.columns if "__" not in str(c)]
+    value_cols = [c for c in df.columns if "__" in str(c)]
+
+    if not value_cols:
+        raise ValueError(
+            "No measurement columns (with '__') found. Cannot standardize."
+        )
 
     # melt the data into a long format
     melted_data = pd.melt(
-        df, id_vars=id_cols, var_name="Measurement", value_name="Value"
+        df,
+        id_vars=id_cols,
+        value_vars=value_cols,
+        var_name="Measurement",
+        value_name="Value",
     )
 
     # Use everything before "__" as the Reactant identifier (e.g. "RT_3__Peak Area" -> "RT_3").
@@ -292,7 +377,7 @@ def standardize_data(df, save_as_csv=False):
         .astype(str)
         .str.extract(r"^(.*?)__", expand=False)
     )
-    melted_data.insert(3, "Reactant", reactant_col)
+    melted_data.insert(len(id_cols), "Reactant", reactant_col)
 
     # remove the "__" from the measurement column so it only contains the suffix (e.g. "Peak Area")
     melted_data["Measurement"] = melted_data["Measurement"].str.replace(
@@ -305,8 +390,23 @@ def standardize_data(df, save_as_csv=False):
         index=pivot_index, columns="Measurement", values="Value"
     ).reset_index()
 
-    # sort the data by Sheet Number and Well
+    # sort the data by Reaction
     pivoted_data = pivoted_data.sort_values(by=["Reaction"])
+    # Drop internal/plate columns
+    drop_candidates = [
+        "Time_Index", "Injection_Numbers", "Sheet_Number", "Unique_Well_ID",
+        "Well", "Plate_Number", "peak_rt"
+    ]
+    pivoted_data = pivoted_data.drop(
+        columns=[c for c in drop_candidates if c in pivoted_data.columns],
+        errors="ignore",
+    )
+
+    columns_list = list(pivoted_data.columns)
+    for i, c in enumerate(columns_list):
+        columns_list[i] = str(c).lower().replace(" ", "_")
+    pivoted_data.columns = columns_list
+
     if save_as_csv:
         pivoted_data.to_csv("final_data.csv", index=False)
     return pivoted_data
@@ -322,11 +422,15 @@ if __name__ == "__main__":
         "./data/NB-0123-0005_Cat_Loading_Data.xlsx", True
     )
 
-    df_cat = parsing_cat_loading_files.parse_cat_loading_file(
+    df_cat = parsing_initial_input.parse_cat_loading_file(
         "./data/NB-0123-0005_Cat_Loading_Conditions.xlsx", True
     )
 
     df_sorted = sort_wells_by_time_blocks(df_excel, df_cat, save_as_csv=True)
 
     df_time_and_rxn = time_and_rxn(df_sorted, df_cat, True)
-    df_standardized = standardize_data(df_time_and_rxn, True)
+
+    # Merge conditions directly from the cat-loading DataFrame
+    df_with_initial_input = add_initial_input_conditions(
+        df_time_and_rxn, df_cat, save_as_csv=True)
+    df_standardized = standardize_data(df_with_initial_input, True)

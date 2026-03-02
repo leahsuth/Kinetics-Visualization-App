@@ -3,6 +3,7 @@ from src.figures.graph_csv import graph_from_csv
 from src.figures.graph_xl import graph_from_xlsx
 import streamlit as st
 from streamlit import session_state as _state
+from src.page_styling.rate_information import rate_information
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
@@ -67,3 +68,7 @@ table_data = {
 }
 
 st.table(table_data, border='horizontal')
+
+rate = rate_information(df, analytes)
+st.write(rate)
+

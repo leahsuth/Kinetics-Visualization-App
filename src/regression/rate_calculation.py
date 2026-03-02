@@ -76,9 +76,9 @@ def rate_calculation(
         residuals, initial_guess, args=(experimental, time, profile_type)
     )
 
-    if not result.success:
-        status = result.status
-        raise ValueError(f'Least Squares failed with a status of {status}')
+    # if not result.success:
+    #     status = result.status
+    #     raise ValueError(f'Least Squares failed with a status of {status}')
         
     opt_params = result.x # optimized parameters
     par = {

@@ -40,13 +40,18 @@ if uploaded_file is not None:
         lookup = setup_df.drop_duplicates(subset=["Reaction"], keep="first").drop(
             columns=["time", "well"], errors="ignore"
         )
-        
+
         final_df = final_df.merge(
             lookup, left_on="reaction", right_on="Reaction", how="left"
         )
 
         if "Reaction" in final_df.columns and "reaction" in final_df.columns:
             final_df = final_df.drop(columns=["Reaction"], errors="ignore")
+
+        # Save the first line to Streamlit session state before plotting,
+        # so `graph_from_xlsx` can safely read it.
+        first_line = parsing_data.process_first_line(uploaded_file)
+        st.session_state["first_line"] = first_line
 
         st.success(f"Loaded {len(final_df)} rows from Excel file")
         graph_from_xlsx(final_df)

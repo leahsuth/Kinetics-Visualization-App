@@ -1,22 +1,29 @@
-import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from sklearn.datasets import load_iris
 
-def lin_reg(df: pd.DataFrame, start_index: int, end_index: int) -> LinearRegression:
-    time_present = 'Time' in df.columns
-    measurement_present = 'Measurement' in df.columns
+def lin_reg(
+    df: pd.DataFrame,
+    y_col: str,
+    start_index: int,
+    end_index: int,
+) -> tuple[LinearRegression, pd.DataFrame]:
 
-    if all([time_present, measurement_present]) not in df.columns:
-        return ValueError('DataFrame does not contain Time or Measurement columns')
+    if "Time" not in df.columns or y_col not in df.columns:
+        raise ValueError("DataFrame does not contain required Time or measurement columns.")
 
-    sliced_df = df[start_index : end_index]
-    X = sliced_df['Time']
-    y = sliced_df['Measurement']
-    
+    if start_index < 0 or end_index < 0 or start_index > end_index:
+        raise ValueError("Invalid regression index range.")
+
+    sliced_df = df.iloc[start_index : end_index + 1].copy()
+    sliced_df = sliced_df.dropna(subset=["Time", y_col])
+    if len(sliced_df) < 2:
+        raise ValueError("Not enough valid points in the selected index range.")
+
+    X = sliced_df[["Time"]]
+    y = sliced_df[[y_col]]
+
     model = LinearRegression()
-    model.fit(X,y)
+    model.fit(X, y)
 
-    return model
-
+    return model, X
 

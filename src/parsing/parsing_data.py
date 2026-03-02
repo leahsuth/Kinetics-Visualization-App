@@ -90,15 +90,7 @@ def process_data(file_name, save_as_csv=False):
         Dataframe with data from provided file
     """
     # Handle both file paths and uploaded file
-    if isinstance(file_name, (str, Path)):
-        filepath = Path(file_name)
-    else:
-        # Assume a file-like object (e.g. Streamlit UploadedFile)
-        fname = getattr(file_name, "name", None)
-        if not fname:
-            raise TypeError("file_name must be a path or a file-like object with a .name attribute")
-        filepath = Path(fname)
-
+    filepath = Path(file_name.name)
     ext = filepath.suffix.lower()
     out_path = filepath.with_suffix(".csv")
 

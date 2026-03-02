@@ -1,6 +1,7 @@
-from src.parsing.parsing_data import process_data, standardize_data 
-from src.figures.graph_csv import graph_from_csv
-from src.figures.graph_xl import graph_from_xlsx
+import io
+import pandas as pd
+from src.parsing import parsing_data, parsing_initial_input
+from src.figures import graph_xl
 import streamlit as st
 from streamlit import session_state as _state
 from src.page_styling.rate_information import rate_information
@@ -18,54 +19,53 @@ with st.sidebar:
         help="Upload a CSV or Excel (ChemStation) kinetics file.",
     )
 
+# Remove state so they don't persist when new files are uploaded
+if 'regression_models' in _state:
+    _state.pop('regression_models')
+    _state.pop('analytes')
 
-if uploaded_file is None:
-    st.info("Please Upload a file to begin")
+#----File Upload----------------------------------------
+if not st.session_state.get("hplc_file_bytes"):
+    st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
-file_type = uploaded_file.name.split(".")[-1].lower()
+if not isinstance(st.session_state.get("cat_loading_df"), pd.DataFrame):
+    st.warning("Please complete and save the Experiment Setup before viewing kinetics.")
+    st.stop()
+
+uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
+
 with st.spinner("Loading data..."):
-    df = process_data(uploaded_file)
+    df = parsing_data.process_data(uploaded_file)
 
+#----Plotting----------------------------------------
+# Get Initial Data from df
+experiment_setup = st.session_state.get("cat_loading_df")
+setup_df = parsing_initial_input.parse_cat_loading_file(experiment_setup)
 
-#----Plotting / Analyte Selection----------------------------------------
-if file_type == "csv":
-    analytes = st.multiselect("Select an analyte", df.drop(columns=['Sample Name', 'Time']).columns)
+df_sorted = parsing_data.sort_wells_by_time_blocks(df, setup_df)
+df_time_and_rxn = parsing_data.time_and_rxn(df_sorted, setup_df)
+final_df = parsing_data.standardize_data(df_time_and_rxn)
 
-    if len(analytes) == 0:
-        st.warning("Please select at least one analyte to plot.")
-        st.stop()
-    df.columns = df.columns.str.strip()
-    samples = df["Sample Name"].str[:-4].unique()
-    chosen_sample = st.sidebar.selectbox("Choose a sample to plot", samples)
-    filtered_df = df[df["Sample Name"].str[:-4] == chosen_sample]
-    st.success(f"Loaded {len(filtered_df)} rows for {chosen_sample}")
-    try:
-        graph_from_csv(filtered_df, analytes)
-    except Exception as err:
-        st.error(f"Error plotting data: {err}")
-        st.stop() 
-else:
-    df = standardize_data(df)
-    st.success(f"Loaded {len(df)} rows from Excel file")
-    sample_col = "Reaction" if "Reaction" in df.columns else "Sample"
-    if sample_col in df.columns:
-        samples = df[sample_col].unique()
-        selected_samples = st.multiselect(
-            "Select samples to plot",
-            samples,
-            default=list(samples) if len(samples) <= 10 else list(samples[:5]),
-        )
-        if not selected_samples:
-            st.warning("Please select at least one sample.")
-            st.stop()
+# Merge annotations onto standardized result (one row per reaction)
+lookup = setup_df.drop_duplicates(subset=["Reaction"], keep="first").drop(
+    columns=["time", "well"], errors="ignore"
+)
 
-    reactants = df["Reactant"].unique()
-    select_reactants = st.multiselect("Select reactants to plot", reactants, default=list(reactants))
-    try:
-        graph_from_xlsx(df, analytes)
-    except:
-        st.stop() 
+final_df = final_df.merge(
+    lookup, left_on="reaction", right_on="Reaction", how="left"
+)
+
+if "Reaction" in final_df.columns and "reaction" in final_df.columns:
+    final_df = final_df.drop(columns=["Reaction"], errors="ignore")
+
+# Re-read bytes for process_first_line (BytesIO pointer was consumed above)
+uploaded_file_for_first_line = io.BytesIO(st.session_state["hplc_file_bytes"])
+first_line = parsing_data.process_first_line(uploaded_file_for_first_line)
+st.session_state["first_line"] = first_line
+
+st.success("Loaded HPLC file.")
+graph_xl.graph_from_xlsx(final_df)
 
 #----Initial Rate----------------------------------------
 st.divider()
@@ -75,3 +75,9 @@ st.write("# Initial Rate Calculations")
 rate = rate_information(df, analytes)
 st.write(rate)
 
+table_data = {
+    "Analyte" : [sample for sample in analytes],
+    "Correlation Coefficients" : [model.coef_.flat[0] for model in models]
+}
+
+st.table(table_data, border='horizontal')

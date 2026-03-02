@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import openpyxl  # needed for excel file -> df
-import parsing_initial_input
+from src.parsing import parsing_initial_input
 
 
 def process_first_line(file_name):
@@ -55,7 +55,15 @@ def process_data(file_name, save_as_csv=False):
         Dataframe with data from provided file
     """
     # Handle both file paths and uploaded file
-    filepath = Path(file_name)
+    if isinstance(file_name, (str, Path)):
+        filepath = Path(file_name)
+    else:
+        # Assume a file-like object (e.g. Streamlit UploadedFile)
+        fname = getattr(file_name, "name", None)
+        if not fname:
+            raise TypeError("file_name must be a path or a file-like object with a .name attribute")
+        filepath = Path(fname)
+
     ext = filepath.suffix.lower()
     out_path = filepath.with_suffix(".csv")
 
@@ -244,12 +252,19 @@ def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
 
 
 def time_and_rxn(df, cat_df, save_as_csv=False):
-    num_of_reactions = parsing_initial_input.num_reactions(cat_df)
+    timepoint_map = parsing_initial_input.timepoint_map(cat_df)
+    num_time_blocks = max(len(timepoint_map), 1)
+    # Use the larger of: data-derived count, or setup-derived count.
+    # So we never collapse to 1 reaction when the setup only lists the one you edited.
+    from_data = len(df) // num_time_blocks
+    from_setup = parsing_initial_input.num_reactions(cat_df) or 0
+    num_of_reactions = max(from_data, from_setup)
+    if num_of_reactions <= 0:
+        num_of_reactions = 1
     # Time = time block (0, 1, 2, ...); Reaction = 1..num_of_reactions within each block
     df["Time_Index"] = df.index // num_of_reactions
     df["Reaction"] = (df.index % num_of_reactions) + 1
 
-    timepoint_map = parsing_initial_input.timepoint_map(cat_df)
     df["Time"] = df["Time_Index"].map(timepoint_map)
 
     if save_as_csv:
@@ -261,12 +276,16 @@ def time_and_rxn(df, cat_df, save_as_csv=False):
 def add_initial_input_conditions(df: pd.DataFrame, lookup_df: Optional[pd.DataFrame], save_as_csv: bool = False):
     """
     Add any extra conditions from the initial input file to the dataframe.
+    Keeps one row per reaction from the lookup so the merge is many-to-one and
+    we don't blow up rows or add duplicate time columns that break standardize_data.
     """
     merged = df.copy()
     lookup_copy = lookup_df.copy()
-    lookup_copy = lookup_copy.drop(columns=["time", "well"])
+    lookup_copy = lookup_copy.drop(columns=["time", "well"], errors="ignore")
+    # One row per reaction so merge is many-to-one (no row explosion, no duplicate time col)
+    lookup_copy = lookup_copy.drop_duplicates(subset=["Reaction"], keep="first")
 
-    merged = pd.merge(merged, lookup_copy, on="Reaction", how='outer')
+    merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
 
     if save_as_csv:
         merged.to_csv("merged_data.csv", index=False)
@@ -295,11 +314,26 @@ def standardize_data(df, save_as_csv=False):
     df : pandas dataframe
       Dataframe with standardized data
     """
+    # Deduplicate columns by lowercased name (keep first). After merge we can have
+    # both "Reaction" and "reaction"; pivot then collapses 32 reactions to 1.
+    seen_lower = {}
+    dedup_cols = []
+    for c in df.columns:
+        cl = str(c).lower()
+        if cl not in seen_lower:
+            seen_lower[cl] = c
+            dedup_cols.append(c)
+    df = df[dedup_cols].copy()
+
     # Id columns = everything that is not a measurement column.
     # Measurement columns follow "Reactant__Suffix" (e.g. "Product__Peak Area").
     id_cols = [c for c in df.columns if "__" not in str(c)]
     value_cols = [c for c in df.columns if "__" in str(c)]
 
+    if not value_cols:
+        raise ValueError(
+            "No measurement columns (with '__') found. Cannot standardize."
+        )
 
     # melt the data into a long format
     melted_data = pd.melt(
@@ -329,11 +363,22 @@ def standardize_data(df, save_as_csv=False):
         index=pivot_index, columns="Measurement", values="Value"
     ).reset_index()
 
-    # sort the data by Sheet Number and Well
+    # sort the data by Reaction
     pivoted_data = pivoted_data.sort_values(by=["Reaction"])
-    pivoted_data.drop(columns=["Time_Index", "Peak RT", "Injection_Numbers",
-                               "Sheet_Number", "Unique_Well_ID",
-                               "Well", "Plate_Number"], inplace=True)
+    # Drop internal/plate columns if present ("Peak RT" is not a column name)
+    drop_candidates = [
+        "Time_Index", "Injection_Numbers", "Sheet_Number", "Unique_Well_ID",
+        "Well", "Plate_Number",
+    ]
+    pivoted_data = pivoted_data.drop(
+        columns=[c for c in drop_candidates if c in pivoted_data.columns],
+        errors="ignore",
+    )
+
+    columns_list = list(pivoted_data.columns)
+    for i, c in enumerate(columns_list):
+        columns_list[i] = str(c).lower().replace(" ", "_")
+    pivoted_data.columns = columns_list
 
     if save_as_csv:
         pivoted_data.to_csv("final_data.csv", index=False)

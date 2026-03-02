@@ -165,6 +165,8 @@ def process_excel_sheet(file_name, sheet_number, engine):
     )
     df.insert(1, "Plate_Number", new_col)
 
+    df.columns = df.columns.str.strip()
+
     # Remove Plate_Number- from Well if it exists
     df["Well"] = df["Well"].str.replace(r"^.*?-", "", regex=True)
 

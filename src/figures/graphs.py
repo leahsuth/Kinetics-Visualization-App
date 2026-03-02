@@ -129,7 +129,7 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     # Hover: all columns, but hide Plotly’s internal _custom_color (dict form excludes it from tooltip)
     hover_data = {c: True for c in df.columns}
-    hover_data["_custom_color"] = False
+    #hover_data["_custom_color"] = False
 
     # Incorporate stash sizing here too for consistency
     fig_kwargs = dict(
@@ -169,6 +169,9 @@ def graph_from_xlsx(df: pd.DataFrame):
     )
 
     st.plotly_chart(fig, use_container_width=True)
+    first_line = st.session_state["first_line"]
+    st.caption(first_line)
+
     st.divider()
     st.subheader("Initial Rate")
     st.caption("Initial rate will be calculated here.")

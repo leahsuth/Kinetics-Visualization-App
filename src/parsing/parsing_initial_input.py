@@ -79,9 +79,16 @@ def num_reactions(df):
 
 
 def cols_per_timepoint(df):
+    if "well" not in df.columns:
+        return 4  # default when no well column (e.g. Reaction_N / Reaction_W only)
     col_num = (
-        df["well"].astype(str).str.extract(r"(\d+)$").astype(int)[0]
+        df["well"]
+        .astype(str)
+        .str.extract(r"(\d+)$", expand=False)
     )
+    col_num = pd.to_numeric(col_num, errors="coerce").dropna()
+    if col_num.empty:
+        return 4
     return int(col_num.max())
 
 

@@ -31,11 +31,7 @@ def process_first_line(file_name):
         file_obj = file_name
     else:
         fname = getattr(file_name, "name", None)
-        if not fname:
-            raise TypeError(
-                "file_name must be a path or a file-like object with a .name attribute"
-            )
-        filepath = Path(fname)
+        filepath = Path(fname) if fname else Path("data.xlsx")
         ext = filepath.suffix.lower()
         file_obj = file_name
 
@@ -90,6 +86,7 @@ def process_data(file_name, save_as_csv=False):
     df : pandas dataframe
         Dataframe with data from provided file
     """
+
     # Handle both file paths and uploaded files
     if isinstance(file_name, (str, Path)):
         filepath = Path(file_name)
@@ -100,7 +97,7 @@ def process_data(file_name, save_as_csv=False):
                 "file_name must be a path or a file-like object with a .name attribute"
             )
         filepath = Path(fname)
-
+ 
     ext = filepath.suffix.lower()
     out_path = filepath.with_suffix(".csv")
 

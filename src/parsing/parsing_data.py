@@ -69,11 +69,12 @@ def process_data(file_name, save_as_csv=False):
     """
     Processing .xlsx, .xls, and .csv files into Pandas Dataframe
 
-    This should work for Excel files with multiple sheets
+    This works for both filesystem paths and file-like objects (e.g.
+    Streamlit UploadedFile) and for Excel files with multiple sheets.
 
     Parameters
     -----------
-    file_name : str or file-like
+    file_name : str, Path, or file-like
         Path to file or Streamlit UploadedFile (must have .name for extension)
     save_as_csv : bool
         Saves as CSV if True
@@ -85,9 +86,18 @@ def process_data(file_name, save_as_csv=False):
     df : pandas dataframe
         Dataframe with data from provided file
     """
-    # Handle both file paths and uploaded file objects (e.g. BytesIO)
-    name = getattr(file_name, "name", None)
-    filepath = Path(name) if name else Path("data.xlsx")
+
+    # Handle both file paths and uploaded files
+    if isinstance(file_name, (str, Path)):
+        filepath = Path(file_name)
+    else:
+        fname = getattr(file_name, "name", None)
+        if not fname:
+            raise TypeError(
+                "file_name must be a path or a file-like object with a .name attribute"
+            )
+        filepath = Path(fname)
+ 
     ext = filepath.suffix.lower()
     out_path = filepath.with_suffix(".csv")
 
@@ -290,6 +300,7 @@ def time_and_rxn(df, cat_df, save_as_csv=False):
     df["Reaction"] = (df.index % num_of_reactions) + 1
 
     df["Time"] = df["Time_Index"].map(timepoint_map)
+    df["Time"] = pd.to_numeric(df["Time"], errors="coerce")
 
     if save_as_csv:
         df.to_csv("time_and_rxn.csv", index=False)
@@ -388,7 +399,7 @@ def standardize_data(df, save_as_csv=False):
     ).reset_index()
 
     # sort the data by Reaction
-    pivoted_data = pivoted_data.sort_values(by=["Reaction"])
+    pivoted_data = pivoted_data.sort_values(by=["Reaction", "Time"])
     # Drop internal/plate columns
     drop_candidates = [
         "Time_Index", "Injection_Numbers", "Sheet_Number", "Unique_Well_ID",
@@ -414,20 +425,58 @@ def standardize_data_realdata(df, save_as_csv=False):
     return standardize_data(df, save_as_csv=save_as_csv)
 
 
-if __name__ == "__main__":
-    df_excel = process_data(
-        "./data/NB-0123-0005_Cat_Loading_Data.xlsx", True
-    )
+def process_manual(
+    data_path: str = "./data/NB-0123-0003_Impurity_Study_Data.xlsx",
+    cat_loading_path: str = "./data/NB-0123-0003_Impurity_Study_Conditions.xlsx",
+):
+    """
+    Replicate the Streamlit Excel-processing pipeline on the command line.
 
+    Steps (each saved to CSV):
+      1. process_data -> base CSV of the kinetics data
+      2. parse_cat_loading_file -> cleaned catalyst-loading conditions
+      3. sort_wells_by_time_blocks -> sorted_wells.csv
+      4. time_and_rxn -> time_and_rxn.csv
+      5. standardize_data -> final_data.csv
+      6. merge standardized data with cat-loading lookup (one row per Reaction)
+         -> final_with_conditions.csv
+    """
+    # 1) Raw Excel -> dataframe (and CSV)
+    df_excel = process_data(data_path, save_as_csv=True)
+
+    # 2) Catalyst loading / experiment setup
     df_cat = parsing_initial_input.parse_cat_loading_file(
-        "./data/NB-0123-0005_Cat_Loading_Conditions.xlsx", True
+        cat_loading_path
     )
 
+    # 3) Sort wells into time blocks
     df_sorted = sort_wells_by_time_blocks(df_excel, df_cat, save_as_csv=True)
 
-    df_time_and_rxn = time_and_rxn(df_sorted, df_cat, True)
+    # 4) Add Time and Reaction indices
+    df_time_and_rxn = time_and_rxn(df_sorted, df_cat, save_as_csv=True)
 
-    # Merge conditions directly from the cat-loading DataFrame
-    df_with_initial_input = add_initial_input_conditions(
-        df_time_and_rxn, df_cat, save_as_csv=True)
-    df_standardized = standardize_data(df_with_initial_input, True)
+    # 5) Standardize into long-format, one row per reaction/measurement
+    final_df = standardize_data(df_time_and_rxn, save_as_csv=True)
+
+    # 6) Merge annotations/conditions from the cat-loading file,
+    #    mirroring the Streamlit logic in pages/Kinetics.py
+    lookup = df_cat.drop_duplicates(subset=["Reaction"], keep="first").drop(
+        columns=["time", "well"], errors="ignore"
+    )
+    final_with_conditions = final_df.merge(
+        lookup, left_on="reaction", right_on="Reaction", how="left"
+    )
+    if (
+        "Reaction" in final_with_conditions.columns
+        and "reaction" in final_with_conditions.columns
+    ):
+        final_with_conditions = final_with_conditions.drop(
+            columns=["Reaction"], errors="ignore"
+        )
+
+    final_with_conditions.to_csv("final_with_conditions.csv", index=False)
+    return final_with_conditions
+
+
+if __name__ == "__main__":
+    process_manual()

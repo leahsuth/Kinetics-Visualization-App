@@ -4,6 +4,7 @@ import plotly.express as px
 import streamlit as st
 from src.parsing import parsing_data, parsing_initial_input
 from src.page_styling.rate_information import rate_information
+from src.figures.graph_xl import graph_from_xlsx
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
@@ -13,8 +14,8 @@ if not st.session_state.get("hplc_file_bytes"):
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
-if not isinstance(st.session_state.get("cat_loading_df"), pd.DataFrame):
-    st.warning("Please complete and save the Experiment Setup before viewing kinetics.")
+if not st.session_state.get("cat_loading_df"):
+    st.info("Please complete and save the Experiment Setup before viewing kinetics.")
     st.stop()
 
 uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
@@ -33,9 +34,6 @@ df_with_conditions = parsing_data.add_initial_input_conditions(df_time_and_rxn, 
 final_df = parsing_data.standardize_data(df_with_conditions)
 
 # Re-read bytes for process_first_line (BytesIO pointer was consumed above)
-uploaded_file_for_first_line = io.BytesIO(st.session_state["hplc_file_bytes"])
-first_line = parsing_data.process_first_line(uploaded_file_for_first_line)
-st.session_state["first_line"] = first_line
 
 st.success(f"Loaded {len(final_df)} rows from Excel file")
 
@@ -55,7 +53,7 @@ if not selected_reactions:
     st.warning("Please select at least one reaction.")
     st.stop()
 
-df_plot = final_df[final_df["reaction"].astype(str).isin(selected_reactions)].copy()
+df_plot = final_df[final_df["reaction"].astype(str).isin(selected_reactions)]
 
 analytes = df_plot["reactant"].dropna().astype(str).unique().tolist()
 analytes = sorted(analytes)
@@ -68,66 +66,9 @@ if not selected_analytes:
     st.warning("Please select at least one analyte.")
     st.stop()
 
-df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)].copy()
+df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)]
 
-exclude_cols = {"reaction", "reactant", "time", "well", "plate_well", "role", "notes"}
-preferred = [c for c in ["peak_area", "peak_ap"] if c in df_plot.columns]
-measurement_cols = preferred[:]
-if not measurement_cols:
-    candidates = [c for c in df_plot.columns if c not in exclude_cols]
-    for c in candidates:
-        coerced = pd.to_numeric(df_plot[c], errors="coerce")
-        if coerced.notna().any():
-            measurement_cols.append(c)
-if not measurement_cols:
-    st.error("No numeric measurement columns found for plotting.")
-    st.stop()
-
-select_meas = st.selectbox("Select measurement to plot", measurement_cols)
-df_plot[select_meas] = pd.to_numeric(df_plot[select_meas], errors="coerce")
-
-color_options = [c for c in ["reactant", "reaction"] if c in df_plot.columns]
-color_select = st.radio("Color by:", color_options, horizontal=True)
-
-chart_type = st.radio("Chart type", ["Scatter", "Line"], horizontal=True)
-
-fig_kwargs = dict(
-    width=1200,
-    height=500,
-    hover_data={c: True for c in df_plot.columns},
-)
-
-if chart_type == "Line":
-    fig = px.line(
-        df_plot.sort_values(by=["reaction", "reactant", "time"]),
-        x="time",
-        y=select_meas,
-        color=color_select,
-        markers=True,
-        **fig_kwargs,
-    )
-else:
-    fig = px.scatter(
-        df_plot,
-        x="time",
-        y=select_meas,
-        color=color_select,
-        **fig_kwargs,
-    )
-
-fig.update_layout(
-    title=dict(
-        text=f"{select_meas} vs. time",
-        font=dict(size=28),
-        x=0.5,
-        xanchor="center",
-        y=0.95,
-        yanchor="top",
-    )
-)
-
-st.plotly_chart(fig, use_container_width=True)
-st.caption(first_line)
+graph_from_xlsx(df_plot, selected_analytes)
 
 #----Initial Rate----------------------------------------
 st.divider()

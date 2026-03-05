@@ -30,6 +30,14 @@ def graph_from_xlsx(df: pd.DataFrame):
     select_reactants = st.multiselect("Select reactants to plot", reactants, default=list(reactants))
     df = df[df["reactant"].isin(select_reactants)]
 
+    # Coerce time to numeric so sorting/Plotly x-axis is correct even if time is a string.
+    if "time" in df.columns:
+        df["time"] = pd.to_numeric(df["time"], errors="coerce")
+    elif "Time" in df.columns:
+        # Defensive: if upstream produced capitalized Time, normalize to lowercase.
+        df = df.rename(columns={"Time": "time"})
+        df["time"] = pd.to_numeric(df["time"], errors="coerce")
+
     preferred = ["peak_area", "peak_ap"]
     measurement_cols = [c for c in preferred if c in df.columns]
 
@@ -38,6 +46,7 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     select_meas = st.selectbox("Select measurement to plot", measurement_cols)
     df[select_meas] = pd.to_numeric(df[select_meas], errors="coerce")
+    df = df.dropna(subset=["time", select_meas])
 
     color_options = [c for c in ["reactant", "reaction"] if c in df.columns]
     color_select = st.radio("Color by:", color_options or ["reactant"])
@@ -80,11 +89,11 @@ def graph_from_xlsx(df: pd.DataFrame):
             **fig_kwargs,
         )
 
-    for analyte, x_test, y_pred in regression_lines:
+    for analyte, x_vals, y_vals in regression_lines:
         fig.add_trace(
             go.Scatter(
-                x=x_test["Time"],
-                y=y_pred,
+                x=x_vals,
+                y=y_vals,
                 mode="lines",
                 name=f"Linear Regression ({analyte})",
                 line=dict(color="black", dash="dash", width=3),

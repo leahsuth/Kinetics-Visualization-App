@@ -23,6 +23,7 @@ if not isinstance(st.session_state.get("cat_loading_df"), pd.DataFrame):
     st.stop()
 
 uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
+uploaded_file.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
 
 with st.spinner("Loading data..."):
     df = parsing_data.process_data(uploaded_file)
@@ -32,24 +33,14 @@ with st.spinner("Loading data..."):
 experiment_setup = st.session_state.get("cat_loading_df")
 setup_df = parsing_initial_input.parse_cat_loading_file(experiment_setup)
 
-df_sorted = parsing_data.sort_wells_by_time_blocks(df, setup_df)
-df_time_and_rxn = parsing_data.time_and_rxn(df_sorted, setup_df)
-final_df = parsing_data.standardize_data(df_time_and_rxn)
+df_time_and_rxn = parsing_data.add_timepoint_and_reaction(df, setup_df)
+df_w_conditions = parsing_data.add_initial_input_conditions(df_time_and_rxn, setup_df)
+final_df = parsing_data.standardize_data(df_w_conditions)
 
-# Merge annotations onto standardized result (one row per reaction)
-lookup = setup_df.drop_duplicates(subset=["Reaction"], keep="first").drop(
-    columns=["time", "well"], errors="ignore"
-)
-
-final_df = final_df.merge(
-    lookup, left_on="reaction", right_on="Reaction", how="left"
-)
-
-if "Reaction" in final_df.columns and "reaction" in final_df.columns:
-    final_df = final_df.drop(columns=["Reaction"], errors="ignore")
 
 # Re-read bytes for process_first_line (BytesIO pointer was consumed above)
 uploaded_file_for_first_line = io.BytesIO(st.session_state["hplc_file_bytes"])
+uploaded_file_for_first_line.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
 first_line = parsing_data.process_first_line(uploaded_file_for_first_line)
 st.session_state["first_line"] = first_line
 

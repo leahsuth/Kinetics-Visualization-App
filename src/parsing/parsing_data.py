@@ -135,28 +135,9 @@ def process_excel(file_name, out_path, engine, save_as_csv=False):
     """
     Process an Excel file into a pandas dataframe
     """
-    xls = pd.ExcelFile(file_name, engine=engine)
-    num_sheets = len(xls.sheet_names)
-
-    parsed = []  # store all of the df from each Excel sheet
-
-    # process all of the sheet
-    for i in range(num_sheets):
-        parsed.append(process_excel_sheet(file_name, i, engine))
-
-    merged_df = pd.concat(parsed, ignore_index=True)
-    if save_as_csv:
-        merged_df.to_csv(out_path, index=False)
-    return merged_df
-
-
-def process_excel_sheet(file_name, sheet_number, engine):
-    """
-    Process an Excel sheet into a pandas dataframe
-    """
     # read data into basic dataframe
     raw = pd.read_excel(
-        file_name, sheet_name=sheet_number, header=None, engine=engine
+        file_name, header=None, engine=engine
         )
     # find the first row that contains "Peak RT"
     matches = raw.index[
@@ -166,15 +147,11 @@ def process_excel_sheet(file_name, sheet_number, engine):
         )
     ]
 
-    if len(matches) == 0:
-        raise ValueError(f"No 'Peak RT' found in sheet {sheet_number}")
-
     # header row is the one with the RT, above the peak RT row
     hdr1_row = matches[0] - 1
     # Re-read sheet with multi-row header (RT, Peak Area/etc.)
     df = pd.read_excel(
         file_name,
-        sheet_name=sheet_number,
         skiprows=int(hdr1_row),
         header=[0, 1],
         engine=engine,
@@ -196,114 +173,51 @@ def process_excel_sheet(file_name, sheet_number, engine):
 
     # Standardize the column names
     cols = list(df.columns)
-    cols[0] = "Reaction"
+    cols[0] = "Sample_Name"
     cols[1] = "Well"
-    cols[2] = "Injection_Numbers"
+    cols[2] = "Injection_Number"
     df.columns = cols
 
-    # Create a new column for Plate Number, defaults to AAA
-    new_col = (
-        df["Well"]
-        .where(df["Well"].str.contains("-"), "AAA")
-        .str.split("-")
-        .str[0]
-    )
-    df.insert(1, "Plate_Number", new_col)
+    # Delete unnecessary column, well
+    df = df.drop(columns="Well")
 
-    df.columns = df.columns.str.strip()
+    # Process injection data
+    df = _process_injection_data(df)
 
-    # Remove Plate_Number- from Well if it exists
-    df["Well"] = df["Well"].str.replace(r"^.*?-", "", regex=True)
-
-    # Add the sheet number to the dataframe
-    df["Sheet_Number"] = sheet_number
-
-    # Adding a unique well ID to the dataframe
-    df["Unique_Well_ID"] = (df.index // 96).astype(str) + df["Well"].astype(str)
-
+    if save_as_csv:
+        df.to_csv(out_path, index=False)
     return df
 
 
-def _parse_well_labels(well_series):
+def _process_injection_data(df, save_as_csv=False):
     """
-    Parse well labels into components suitable for sorting.
-
-    Returns a dataframe with integer columns:
-      - repeat well: repeat well indices (0 if omitted in the label)
-      - row_idx: 0-based row index (A->0, ..., H->7)
-      - col: numeric column index
+    Remove any duplicate injection data from the dataframe for processing
     """
-    s = well_series.astype(str)
-
-    # Optional leading digits for repeat well, then a row letter A–H, then column digits.
-    extracted = s.str.extract(r"^(\d*)([A-H])(\d+)$")
-    extracted.columns = ["repeat_well", "row", "col"]
-
-    # Treat missing repeats as 0
-    extracted["repeat_well"] = (
-        extracted["repeat_well"].replace({"": "0"}).fillna("0").astype(int)
-    )
-
-    row_map = {c: i for i, c in enumerate("ABCDEFGH")}
-    extracted["row_idx"] = extracted["row"].map(row_map)
-    extracted["col"] = extracted["col"].astype(int)
-
-    return extracted[["repeat_well", "row_idx", "col"]]
-
-
-def sort_wells_by_time_blocks(df, cat_df, save_as_csv=False):
-    """
-    Sort a dataframe of wells using the unique wells
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Dataframe containing a well identifier column.
-    cat_df : pandas.DataFrame
-        Catalyst-loading dataframe used to determine cols_per_timepoint.
-    """
-    cols_per_timepoint = parsing_initial_input.cols_per_timepoint(cat_df)
-
-    parsed = _parse_well_labels(df["Unique_Well_ID"])
-
-    parsed["block"] = (parsed["col"] - 1) // cols_per_timepoint
-    parsed["rep"] = (parsed["col"] - 1) % cols_per_timepoint
-
-    tmp = df.assign(
-        _repeat_well=parsed["repeat_well"].values,
-        _row_idx=parsed["row_idx"].values,
-        _block=parsed["block"].values,
-        _rep=parsed["rep"].values,
-    )
-
-    sorted_df = (
-        tmp.sort_values(by=["_repeat_well", "_block", "_row_idx", "_rep"])
-        .drop(columns=["_repeat_well", "_row_idx", "_block", "_rep"])
-        .reset_index(drop=True)
-    )
-
+    # See if there are duplicate Sample Names
+    if df["Sample_Name"].duplicated().any():
+        # Sort by Sample Name and Injection Number
+        df.sort_values(by=["Sample_Name", "Injection_Number"], inplace=True)
+        # Drop duplicate Sample Names by keeping the last one
+        df.drop_duplicates(subset=["Sample_Name"], keep="last", inplace=True)
+    
+    # get rid of injection number column
+    df = df.drop(columns="Injection_Number")
     if save_as_csv:
-        sorted_df.to_csv("sorted_wells.csv", index=False)
+        df.to_csv("injection_data.csv", index=False)
+    return df
 
-    return sorted_df
 
-
-def time_and_rxn(df, cat_df, save_as_csv=False):
+def add_timepoint_and_reaction(df, cat_df, save_as_csv=False):
+    """Add Time and Reaction."""
+    num_of_reactions = parsing_initial_input.num_reactions(cat_df)
     timepoint_map = parsing_initial_input.timepoint_map(cat_df)
-    num_time_blocks = max(len(timepoint_map), 1)
-    # Use the larger of: data-derived count, or setup-derived count.
-    # So we never collapse to 1 reaction when the setup only lists the one you edited.
-    from_data = len(df) // num_time_blocks
-    from_setup = parsing_initial_input.num_reactions(cat_df) or 0
-    num_of_reactions = max(from_data, from_setup)
-    if num_of_reactions <= 0:
-        num_of_reactions = 1
-    # Time = time block (0, 1, 2, ...); Reaction = 1..num_of_reactions within each block
-    df["Time_Index"] = df.index // num_of_reactions
+
     df["Reaction"] = (df.index % num_of_reactions) + 1
 
-    df["Time"] = df["Time_Index"].map(timepoint_map)
-    df["Time"] = pd.to_numeric(df["Time"], errors="coerce")
+    df["Timepoint_Number"] = df.index // num_of_reactions
+    df["Time"] = df["Timepoint_Number"].map(timepoint_map)
+    df["Time"] = df["Time"].astype(float)
+    df = df.drop(columns=["Timepoint_Number"], errors="ignore")
 
     if save_as_csv:
         df.to_csv("time_and_rxn.csv", index=False)
@@ -311,17 +225,17 @@ def time_and_rxn(df, cat_df, save_as_csv=False):
     return df
 
 
-def add_initial_input_conditions(df: pd.DataFrame, lookup_df: Optional[pd.DataFrame], save_as_csv: bool = False):
+def add_initial_input_conditions(df, cat_df, save_as_csv: bool = False):
     """
     Add any extra conditions from the initial input file to the dataframe.
     Keeps one row per reaction from the lookup so the merge is many-to-one and
     we don't blow up rows or add duplicate time columns that break standardize_data.
     """
     merged = df.copy()
-    lookup_copy = lookup_df.copy()
+    lookup_copy = cat_df.copy()
     lookup_copy = lookup_copy.drop(columns=["time", "well"], errors="ignore")
     # One row per reaction so merge is many-to-one (no row explosion, no duplicate time col)
-    lookup_copy = lookup_copy.drop_duplicates(subset=["Reaction"], keep="first")
+    lookup_copy = cat_df.drop_duplicates(subset=["Reaction"], keep="first")
 
     merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
 
@@ -403,20 +317,15 @@ def standardize_data(df, save_as_csv=False):
 
     # sort the data by Reaction
     pivoted_data = pivoted_data.sort_values(by=["Reaction", "Time"])
-    # Drop internal/plate columns
-    drop_candidates = [
-        "Time_Index", "Injection_Numbers", "Sheet_Number", "Unique_Well_ID",
-        "Well", "Plate_Number", "peak_rt"
-    ]
-    pivoted_data = pivoted_data.drop(
-        columns=[c for c in drop_candidates if c in pivoted_data.columns],
-        errors="ignore",
-    )
 
+    # standardize the column names
     columns_list = list(pivoted_data.columns)
     for i, c in enumerate(columns_list):
         columns_list[i] = str(c).lower().replace(" ", "_")
     pivoted_data.columns = columns_list
+
+    # Drop peak rt
+    pivoted_data = pivoted_data.drop(columns=["peak_rt"])
 
     if save_as_csv:
         pivoted_data.to_csv("final_data.csv", index=False)
@@ -429,8 +338,8 @@ def standardize_data_realdata(df, save_as_csv=False):
 
 
 def process_manual(
-    data_path: str = "./data/NB-0123-0003_Impurity_Study_Data.xlsx",
-    cat_loading_path: str = "./data/NB-0123-0003_Impurity_Study_Conditions.xlsx",
+    cat_loading_path: str = "./data/NB-0123-0005_Cat_Loading_Conditions.xlsx",
+    data_path: str = "./data/NB-0123-0005_Cat_Loading_Data.xlsx",
 ):
     """
     Replicate the Streamlit Excel-processing pipeline on the command line.
@@ -445,40 +354,15 @@ def process_manual(
          -> final_with_conditions.csv
     """
     # 1) Raw Excel -> dataframe (and CSV)
-    df_excel = process_data(data_path, save_as_csv=True)
-
-    # 2) Catalyst loading / experiment setup
     df_cat = parsing_initial_input.parse_cat_loading_file(
         cat_loading_path
     )
-
-    # 3) Sort wells into time blocks
-    df_sorted = sort_wells_by_time_blocks(df_excel, df_cat, save_as_csv=True)
-
-    # 4) Add Time and Reaction indices
-    df_time_and_rxn = time_and_rxn(df_sorted, df_cat, save_as_csv=True)
-
-    # 5) Standardize into long-format, one row per reaction/measurement
-    final_df = standardize_data(df_time_and_rxn, save_as_csv=True)
-
-    # 6) Merge annotations/conditions from the cat-loading file,
-    #    mirroring the Streamlit logic in pages/Kinetics.py
-    lookup = df_cat.drop_duplicates(subset=["Reaction"], keep="first").drop(
-        columns=["time", "well"], errors="ignore"
-    )
-    final_with_conditions = final_df.merge(
-        lookup, left_on="reaction", right_on="Reaction", how="left"
-    )
-    if (
-        "Reaction" in final_with_conditions.columns
-        and "reaction" in final_with_conditions.columns
-    ):
-        final_with_conditions = final_with_conditions.drop(
-            columns=["Reaction"], errors="ignore"
-        )
-
-    final_with_conditions.to_csv("final_with_conditions.csv", index=False)
-    return final_with_conditions
+    df_excel = process_data(data_path, save_as_csv=True)
+    df_injection = process_injection_data(df_excel, save_as_csv=True)
+    df_time_and_rxn = add_timepoint_and_reaction(df_injection, df_cat, save_as_csv=True)
+    df_final = add_initial_input_conditions(df_time_and_rxn, df_cat, save_as_csv=True)
+    df_standardized = standardize_data(df_final, save_as_csv=True)
+    return df_standardized
 
 
 if __name__ == "__main__":

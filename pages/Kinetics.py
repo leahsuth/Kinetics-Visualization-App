@@ -5,12 +5,13 @@ import streamlit as st
 from src.parsing import parsing_data, parsing_initial_input
 from src.page_styling.rate_information import rate_information
 from src.figures.graph_xl import graph_from_xlsx
+from src.parsing.plotting_process import plot_process
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
 #----Data Source----------------------------------------
-if not st.session_state.get("hplc_file_bytes"):
+if "hplc_file_bytes" not in st.session_state:
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
@@ -32,7 +33,6 @@ setup_df = parsing_initial_input.parse_cat_loading_file(experiment_setup)
 df_time_and_rxn = parsing_data.add_timepoint_and_reaction(df, setup_df)
 df_w_conditions = parsing_data.add_initial_input_conditions(df_time_and_rxn, setup_df)
 final_df = parsing_data.standardize_data(df_w_conditions)
-
 
 # Re-read bytes for process_first_line (BytesIO pointer was consumed above)
 uploaded_file_for_first_line = io.BytesIO(st.session_state["hplc_file_bytes"])
@@ -71,9 +71,11 @@ if not selected_analytes:
     st.warning("Please select at least one analyte.")
     st.stop()
 
-df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)]
 
-graph_from_xlsx(df_plot)
+# Pre-processing for plotting
+df_plot, select_meas = plot_process(df_plot, selected_reactions, selected_analytes)
+
+graph_from_xlsx(df_plot, selected_reactions, selected_analytes, select_meas)
 
 #----Initial Rate----------------------------------------
 st.divider()

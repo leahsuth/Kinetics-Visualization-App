@@ -125,6 +125,7 @@ def process_csv(file_name, out_path, save_as_csv=False):
     # change name of first column to Sample Name
     cols[0] = "Sample Name"
     df.columns = cols
+    df.columns = df.columns.str.strip()
     if save_as_csv:
         df.to_csv(out_path, index=False)
     return df

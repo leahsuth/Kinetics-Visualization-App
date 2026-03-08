@@ -1,25 +1,21 @@
 import io
 import pandas as pd
-from src.parsing import parsing_data, parsing_initial_input
-from src.figures import graph_xl
+import plotly.express as px
 import streamlit as st
-from streamlit import session_state as _state
+from src.parsing import parsing_data, parsing_initial_input
+from src.page_styling.rate_information import rate_information
+from src.figures.graph_xl import graph_from_xlsx
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
-# Remove state so they don't persist when new files are uploaded
-if 'regression_models' in _state:
-    _state.pop('regression_models')
-    _state.pop('analytes')
-
-#----File Upload----------------------------------------
+#----Data Source----------------------------------------
 if not st.session_state.get("hplc_file_bytes"):
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
-if not isinstance(st.session_state.get("cat_loading_df"), pd.DataFrame):
-    st.warning("Please complete and save the Experiment Setup before viewing kinetics.")
+if "cat_loading_df" not in st.session_state:
+    st.info("Please complete and save the Experiment Setup before viewing kinetics.")
     st.stop()
 
 uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
@@ -44,23 +40,66 @@ uploaded_file_for_first_line.name = st.session_state.get("hplc_file_name", "hplc
 first_line = parsing_data.process_first_line(uploaded_file_for_first_line)
 st.session_state["first_line"] = first_line
 
-st.success("Loaded HPLC file.")
-graph_xl.graph_from_xlsx(final_df)
+st.success(f"Loaded {len(final_df)} rows from Excel file")
+
+if "time" in final_df.columns:
+    final_df["time"] = pd.to_numeric(final_df["time"], errors="coerce")
+
+if "reaction" not in final_df.columns or "reactant" not in final_df.columns:
+    st.error("Missing expected columns (reaction, reactant) after standardization.")
+    st.stop()
+
+reactions = final_df["reaction"].dropna().astype(str).unique().tolist()
+selected_reactions = st.multiselect(
+    "Select reactions to plot",
+    reactions,
+)
+if not selected_reactions:
+    st.warning("Please select at least one reaction.")
+    st.stop()
+
+df_plot = final_df[final_df["reaction"].astype(str).isin(selected_reactions)]
+
+analytes = df_plot["reactant"].dropna().astype(str).unique().tolist()
+analytes = sorted(analytes)
+selected_analytes = st.multiselect(
+    "Select analytes to plot",
+    analytes,
+    default=analytes if len(analytes) <= 8 else analytes[:5],
+)
+if not selected_analytes:
+    st.warning("Please select at least one analyte.")
+    st.stop()
+
+df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)]
+
+graph_from_xlsx(df_plot)
 
 #----Initial Rate----------------------------------------
 st.divider()
 st.write("# Initial Rate Calculations")
 
-if 'regression_models' not in _state:
-    st.warning('No models present!')
+rate_reaction = st.selectbox("Reaction for rate calculation", selected_reactions, index=0)
+
+df_rate = df_plot[df_plot["reaction"].astype(str) == str(rate_reaction)].copy()
+if df_rate.empty:
+    st.warning("No data available for rate calculation with current filters.")
     st.stop()
 
-models = _state['regression_models']
-analytes = _state['analytes']
+df_rate = df_rate.pivot_table(
+    index="time",
+    columns="reactant",
+    values=select_meas,
+    aggfunc="mean",
+).reset_index()
+df_rate = df_rate.rename(columns={"time": "Time"})
+df_rate = df_rate.sort_values(by="Time")
 
-table_data = {
-    "Analyte" : [sample for sample in analytes],
-    "Correlation Coefficients" : [model.coef_.flat[0] for model in models]
-}
+rate_analytes = [a for a in selected_analytes if a in df_rate.columns]
+if not rate_analytes:
+    st.warning("Selected analytes are not available for rate calculation.")
+    st.stop()
 
-st.table(table_data, border='horizontal')
+rate = rate_information(df_rate, rate_analytes)
+if rate is not None:
+    st.write(f"Calculated rate: {rate}")

@@ -89,17 +89,6 @@ def graph_from_xlsx(df: pd.DataFrame):
             **fig_kwargs,
         )
 
-    for analyte, x_vals, y_vals in regression_lines:
-        fig.add_trace(
-            go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                mode="lines",
-                name=f"Linear Regression ({analyte})",
-                line=dict(color="black", dash="dash", width=3),
-            )
-        )
-
     fig.update_layout(
         title=dict(
             text=f"{select_meas} vs. time",
@@ -116,7 +105,3 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
-
-    st.divider()
-    st.subheader("Initial Rate")
-    st.caption("Initial rate will be calculated here.")

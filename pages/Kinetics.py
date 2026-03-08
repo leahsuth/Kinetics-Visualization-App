@@ -14,7 +14,7 @@ if not st.session_state.get("hplc_file_bytes"):
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
-if not st.session_state.get("cat_loading_df"):
+if "cat_loading_df" not in st.session_state:
     st.info("Please complete and save the Experiment Setup before viewing kinetics.")
     st.stop()
 
@@ -73,7 +73,7 @@ if not selected_analytes:
 
 df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)]
 
-graph_from_xlsx(df_plot, selected_analytes)
+graph_from_xlsx(df_plot)
 
 #----Initial Rate----------------------------------------
 st.divider()

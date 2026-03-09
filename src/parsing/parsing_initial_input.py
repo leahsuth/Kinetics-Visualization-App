@@ -3,11 +3,20 @@ import pandas as pd
 from pathlib import Path
 from typing import Union
 
-import openpyxl  # needed for excel file -> df
-
 
 def _normalize_cat_loading_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean and standardize column names; map time/reaction/well columns. Returns a copy."""
+    """
+    Clean and standardize column names
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The initial input dataframe to clean and standardize.
+    Returns
+    -------
+    df : pd.DataFrame
+        The cleaned and standardized initial input dataframe.
+    """
     df = df.dropna(axis=0, how="all").dropna(axis=1, how="all").copy()
     df.columns = df.columns.astype(str).str.strip()
     df.columns = df.columns.str.replace(" ", "_")
@@ -41,9 +50,26 @@ def _normalize_cat_loading_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def parse_cat_loading_file(file_path_or_df: Union[str, Path, pd.DataFrame],
-                           save_as_csv: bool = False):
-    """Parse a cat-loading-style Excel (or already-loaded DataFrame) into a cleaned DataFrame."""
+def parse_input_file(file_path_or_df: Union[str, Path, pd.DataFrame],
+                     save_as_csv: bool = False):
+    """
+    Clean and standardize a initial input file
+
+    The initial input file can be provided as a path to a file or a dataframe.
+
+    Parameters
+    ----------
+    file_path_or_df : Union[str, Path, pd.DataFrame]
+        The path to the initial input file or a dataframe.
+    save_as_csv : bool, optional
+        Whether to save the dataframe as a csv file. Default is False.
+        For testing purposes.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The cleaned and standardized initial input dataframe.
+    """
 
     # If the input is a DataFrame, normalize it and return it
     if isinstance(file_path_or_df, pd.DataFrame):
@@ -61,7 +87,7 @@ def parse_cat_loading_file(file_path_or_df: Union[str, Path, pd.DataFrame],
         path = file_path_or_df
 
     # Read the Excel file into a DataFrame
-    df = pd.read_excel(path)
+    df = pd.read_excel(path, engine="openpyxl")
     df = _normalize_cat_loading_df(df)
     if save_as_csv:
         out = path.with_suffix(".csv")
@@ -70,30 +96,34 @@ def parse_cat_loading_file(file_path_or_df: Union[str, Path, pd.DataFrame],
 
 
 def timepoint_map(df):
+    """
+    Map the timepoints to a dictionary.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The initial input dataframe.
+    Returns
+    -------
+    timepoint_map : dict
+        A dictionary mapping the timepoints to a dictionary.
+    """
     time_df = df["time"].dropna()
-    return dict(enumerate(time_df.astype(str).tolist()))
+    timepoint_map = dict(enumerate(time_df.astype(str).tolist()))
+    return timepoint_map
 
 
 def num_reactions(df):
+    """
+    Get the number of reactions in the initial input dataframe.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The initial input dataframe.
+    Returns
+    -------
+    num_reactions : int
+        The number of reactions in the initial input dataframe.
+    """
     return df['Reaction'].nunique()
-
-
-def cols_per_timepoint(df):
-    if "well" not in df.columns:
-        return 4  # default when no well column (e.g. Reaction_N / Reaction_W only)
-    col_num = (
-        df["well"]
-        .astype(str)
-        .str.extract(r"(\d+)$", expand=False)
-    )
-    col_num = pd.to_numeric(col_num, errors="coerce").dropna()
-    if col_num.empty:
-        return 4
-    return int(col_num.max())
-
-
-if __name__ == "__main__":
-    df_excel = parse_cat_loading_file(
-        "./data/NB-0123-0005_Cat_Loading_Conditions.xlsx", True
-    )
-    print(timepoint_map(df_excel))

@@ -1,5 +1,7 @@
 import streamlit as st
 from pathlib import Path
+import io
+import pandas as pd
 
 st.set_page_config(
     page_title="Kinetics Visualization",
@@ -10,59 +12,90 @@ st.set_page_config(
 
 st.logo(image='assets/Merck_Logo.png')
 
-# Teal banner
-st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-    color: white;
-    padding: 1rem;
-    margin: 0 -1rem 1rem -1rem;
-    text-align: center;
-    border-radius: 0 0 12px 12px;
-    box-shadow: 0 4px 12px rgba(0,122,115,0.2);
-">
-    <h1 style="margin: 0; font-size: 3.0rem; font-weight: 700; letter-spacing: -0.02em;">
-        Welcome to the Kinetics Visualization App!
-    </h1>
-    <p style="margin: 0.5rem 0 0; font-size: 2.0rem; opacity: 0.9;">
-        Upload data, visualize plates, and analyze peak areas
-    </p>
-</div>
-""", unsafe_allow_html=True)
+def larger_banner(title, subtitle=None):
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+        color: white;
+        padding: 1rem;
+        margin: 0 -1rem 1rem -1rem;
+        text-align: center;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 4px 12px rgba(0,122,115,0.2);
+    ">
+        <h1 style="margin: 0; font-size: 3.0rem; font-weight: 700; letter-spacing: -0.02em;">{title}</h1>
+        {f'<p style="margin: 0.5rem 0 0; font-size: 2.0rem; opacity: 0.9;">{subtitle}</p>' if subtitle else ''}
+    </div>
+    """, unsafe_allow_html=True)
 
-# Instructions banner
-st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-    color: white;
-    padding: 0.35rem 0.75rem;
-    margin: 0 auto 1rem;
-    width: 50%;
-    text-align: center;
-    border-radius: 0 0 6px 6px;
-    box-shadow: 0 4px 6px rgba(0,122,115,0.2);
-">
-    <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;">
-        Instructions
-    </h1>
-</div>
-""", unsafe_allow_html=True)
+def about_banner(title, subtitle=None):
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+        color: white;
+        padding: 0.5rem 0.9rem;
+        margin: 0 auto 1rem;
+        width: 85%;
+        text-align: center;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
+    ">
+        <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{title}</h1>
+    </div>
+    """, unsafe_allow_html=True)
 
-#to-do: Put in a blurb at the beginning explaining purpose of the app
+def smaller_banner(title, subtitle=None):
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        margin: 0 auto 1rem;
+        width: 50%;
+        text-align: center;
+        border-radius: 0 0 6px 6px;
+        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
+    ">
+        <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{title}</h1>
+        {f'<p style="margin: 0.5rem 0 0;">{subtitle}</p>' if subtitle else ''}
+    </div>
+    """, unsafe_allow_html=True)
 
-# Slideshow button styling
-st.markdown("""
-<style>
-  [data-testid="stButton"] button {
-    padding: 0.2rem 0.6rem !important;
-    font-size: 0.8rem !important;
-  }
-</style>
-""", unsafe_allow_html=True)
+def blurb(title, subtitle=None):
+    st.markdown(f"""
+    <div style="
+        background: white;
+        color: black;
+        padding: 0.5rem 0.9rem;
+        margin: 0 auto 1rem;
+        width: 85%;
+        text-align: left;
+        border-radius: 0 0 6px 6px;
+        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
+    ">
+        <div style="margin: 0; font-size: 1.1rem;">{title}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize plates, and analyze peak areas")
+
+about_banner("About")
+
+blurb("""This app is designed to streamline and automate the process of visualizing and analyzing kinetic data from HPLC experiments. Currently, it supports the following features:<br><br>
+       <ul style="text-align: left; display: inline-block; margin: 0.5rem 0 0;">
+         <li>Generating plate layouts from reaction conditions</li>
+         <li>Graphing Peak Area over Time</li>
+         <li>Graphing Peak Area Percent over Time</li>
+         <li>Calculating initial rates</li>
+         <li>Downloading plots as PNGs</li>
+         <li>Unit conversion</li>
+       </ul>""")
+
+smaller_banner("Instructions")
 
 #Slideshow
 SLIDES_DIR = Path(__file__).parent / "assets"
-image_files = ["Initial_Input.png", "Kinetics.png", "Unit_Conversions.png"]
+image_files = ["Initial_input.png", "Kinetics.png", "Unit_Conversions.png"]
 paths = [SLIDES_DIR / f for f in image_files if (SLIDES_DIR / f).exists()]
 
 if paths:
@@ -71,45 +104,57 @@ if paths:
   n = len(paths)
   idx = st.session_state["slide_idx"]
 
-  #center slideshow
-  _, col_img, _ = st.columns([1, 2, 1])
+
+  _, col_img, _ = st.columns([1, 3, 1])
   with col_img:
-    st.image(str(paths[idx]), width=450)
+    st.image(str(paths[idx]), width=1750)
     st.caption(f"{idx + 1} / {n}")
 
-  #format buttons
-  _, col_btns, _ = st.columns([1, 3, 1])
-  with col_btns:
-    btn_prev, btn_next = st.columns(2)
-    with btn_prev:
-      if st.button("◀ Prev", use_container_width=True, key="prev"):
-        st.session_state["slide_idx"] = (idx - 1) % n
-        st.rerun()
-    with btn_next:
-      if st.button("Next ▶", use_container_width=True, key="next"):
-        st.session_state["slide_idx"] = (idx + 1) % n
-        st.rerun()
+  # Smaller buttons via narrow columns
+  _, col_prev, col_next, _ = st.columns([1, 1, 1, 1])
+  with col_prev:
+    if st.button("◀ Prev", use_container_width=True, key="prev"):
+      st.session_state["slide_idx"] = (idx - 1) % n
+      st.rerun()
+  with col_next:
+    if st.button("Next ▶", use_container_width=True, key="next"):
+      st.session_state["slide_idx"] = (idx + 1) % n
+      st.rerun()
 
-#Format the "Let's get started" button
-st.markdown("""
-<style>
-  [data-testid="stPageLink"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    padding: 0.5rem 1.25rem !important;
-    border: 2px solid #007A73 !important;
-    border-radius: 8px !important;
-    text-decoration: none !important;
-    transition: background 0.2s, color 0.2s !important;
-  }
-  [data-testid="stPageLink"]:hover {
-    background: #007A73 !important;
-    color: white !important;
-  }
-</style>
-""", unsafe_allow_html=True)
-_, col_link, _ = st.columns([1, 1, 1])
-with col_link:
-  st.page_link("pages/Initial_Input.py", label="Let's Get Started!", icon="🧪")
+smaller_banner("Let's Get Started!")
+
+#download template
+def excel_template_bytes() -> bytes:
+    df = pd.DataFrame(
+        [
+            {"Reaction": "1", "Plate_Well": "A1", "Timepoint": "0",  "Role": "Reactant", "Ligand": "LigA", "Catalyst": "Cat1"},
+            {"Reaction": "2", "Plate_Well": "A2", "Timepoint": "5",  "Role": "Product",  "Ligand": "",     "Catalyst": "Cat2"},
+            {"Reaction": "",  "Plate_Well": "",   "Timepoint": "10", "Role": "",          "Ligand": "",     "Catalyst": ""},
+        ]
+    )
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Experiment")
+    return buf.getvalue()
 
 
+_, col_dl, col_guide, _ = st.columns([1, 1, 1, 1])
+with col_dl:
+    st.download_button(
+        label="Download template",
+        data=excel_template_bytes(),
+        file_name="experiment_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
+with col_guide:
+    with st.popover("Column guide", use_container_width=True):
+        st.markdown(
+            "| Column | Required? | Notes |\n"
+            "|---|---|---|\n"
+            "| **Reaction** | Yes | Unique reaction ID |\n"
+            "| **Timepoint** | Yes | One row per timepoint |\n"
+            "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
+            "| **Role** | Optional | Reactant or Product |\n"
+            "| Ligand, Catalyst… | Optional | Extra condition columns |"
+        )

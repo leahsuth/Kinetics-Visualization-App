@@ -61,46 +61,6 @@ def graph_from_xlsx(df: pd.DataFrame):
     hover_data = {c: True for c in df.columns}
     #hover_data["_custom_color"] = False
 
-    #----Regression---------------------------------
-    if len(df) < 2:
-        st.error("Not enough rows for regression.")
-        return
-
-    max_index = len(df) - 1
-    col1, col2 = st.columns(2)
-
-    with col1:
-        start_index = st.number_input("Regression Start Index", min_value=0, max_value=max_index)
-    with col2:
-        end_index = st.number_input("Regression End Index", min_value=1, max_value=max_index)
-
-    if start_index >= end_index:
-        st.error("Start Index must be less than End Index!")
-        raise ValueError("start_index greater than end_index")
-
-    regression_lines = []
-    models = []
-    skipped = []
-    df_regression = df.iloc[start_index : end_index + 1].copy()
-    for analyte in select_reactants:
-        try:
-            model, x_test = lin_reg(df_regression, select_meas, 0, len(df_regression) - 1)
-            y_pred = model.predict(x_test)
-            regression_lines.append((analyte, x_test["Time"].to_numpy(), y_pred.ravel()))
-            models.append(model)
-        except ValueError:
-            skipped.append(analyte)
-        except Exception as err:
-            st.error(f"Regression Failed: {err}")
-            return
-
-    if skipped:
-        st.warning(f"Skipped regression for: {', '.join(skipped)} (not enough points in range).")
-
-    # Save Plotted Ranges to state
-    _state['regression_lines'] = regression_lines
-    _state['regression_models'] = models
-    _state['analytes'] = select_reactants
 
     #----Plotting---------------------------------
     # Incorporate stash sizing here too for consistency
@@ -129,17 +89,6 @@ def graph_from_xlsx(df: pd.DataFrame):
             **fig_kwargs,
         )
 
-    for analyte, x_vals, y_vals in regression_lines:
-        fig.add_trace(
-            go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                mode="lines",
-                name=f"Linear Regression ({analyte})",
-                line=dict(color="black", dash="dash", width=3),
-            )
-        )
-
     fig.update_layout(
         title=dict(
             text=f"{select_meas} vs. time",
@@ -156,7 +105,3 @@ def graph_from_xlsx(df: pd.DataFrame):
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
-
-    st.divider()
-    st.subheader("Initial Rate")
-    st.caption("Initial rate will be calculated here.")

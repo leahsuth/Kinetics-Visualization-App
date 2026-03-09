@@ -7,7 +7,7 @@ from typing import Optional, Dict, List
 
 import streamlit as st
 import pandas as pd
-from src.parsing import parsing_initial_input
+from src.parsing.parsing_initial_input import parse_input_file
 
 st.logo(image='assets/Merck_Logo.png')
 
@@ -440,8 +440,8 @@ if uploaded is not None:
 
         raw_df = st.session_state.get("uploaded_excel_df")
         if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
-            raw_df_norm = parsing_initial_input._normalize_cat_loading_df(raw_df)
-            rxn_df_norm = parsing_initial_input._normalize_cat_loading_df(rxn_df)
+            raw_df_norm = parse_input_file(raw_df)
+            rxn_df_norm = parse_input_file(rxn_df)
             rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
             annotated_df = raw_df_norm.merge(
                 rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")

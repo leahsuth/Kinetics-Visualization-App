@@ -10,7 +10,7 @@ def exp_func(C0,Ce,k,t, profile_type):
         C0: initial concentration at t=0
         Ce: saturation concentration at t=inf
         k: rate constant
-        t: time
+        t: time range
         profile_type: growth or decay
     Returns:
         C: concentration at time t
@@ -68,6 +68,9 @@ def rate_calculation(
     if analyte not in df.columns:
         raise ValueError(f"Analyte {analyte} not present in dataframe")
 
+    if profile_type not in ['growth', 'decay']:
+        raise ValueError(f"profile_type: {profile_type} is not a valid setting")
+
     experimental = df[analyte]
     time = df["Time"]
     initial_guess = (C0, Ce, k)
@@ -76,10 +79,6 @@ def rate_calculation(
         residuals, initial_guess, args=(experimental, time, profile_type)
     )
 
-    # if not result.success:
-    #     status = result.status
-    #     raise ValueError(f'Least Squares failed with a status of {status}')
-        
     opt_params = result.x # optimized parameters
     par = {
         "C0": opt_params[0],

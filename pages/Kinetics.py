@@ -5,12 +5,13 @@ from src.figures import graph_xl
 import streamlit as st
 from src.page_styling.rate_information import rate_information
 from src.figures.graph_xl import graph_from_xlsx
+from src.parsing.plotting_process import plot_process
 
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
 #----Data Source----------------------------------------
-if not st.session_state.get("hplc_file_bytes"):
+if "hplc_file_bytes" not in st.session_state:
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
 
@@ -60,9 +61,11 @@ if not selected_analytes:
     st.warning("Please select at least one analyte.")
     st.stop()
 
-df_plot = df_plot[df_plot["reactant"].astype(str).isin(selected_analytes)]
 
-graph_from_xlsx(df_plot)
+# Pre-processing for plotting
+df_plot, select_meas = plot_process(df_plot, selected_reactions, selected_analytes)
+
+graph_from_xlsx(df_plot, selected_reactions, selected_analytes, select_meas)
 
 #----Initial Rate----------------------------------------
 st.divider()

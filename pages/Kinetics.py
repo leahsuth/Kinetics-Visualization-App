@@ -63,9 +63,9 @@ if not selected_analytes:
 
 
 # Pre-processing for plotting
-df_plot, select_meas = plot_process(df_plot, selected_reactions, selected_analytes)
+df_plot, selected_measurements = plot_process(df_plot, selected_reactions, selected_analytes)
 
-graph_from_xlsx(df_plot, selected_reactions, selected_analytes, select_meas)
+graph_from_xlsx(df_plot, selected_reactions, selected_analytes, selected_measurements)
 
 #----Initial Rate----------------------------------------
 st.divider()
@@ -81,7 +81,7 @@ if df_rate.empty:
 df_rate = df_rate.pivot_table(
     index="time",
     columns="reactant",
-    values=select_meas,
+    values=selected_measurements,
     aggfunc="mean",
 ).reset_index()
 df_rate = df_rate.rename(columns={"time": "Time"})
@@ -92,6 +92,8 @@ if not rate_analytes:
     st.warning("Selected analytes are not available for rate calculation.")
     st.stop()
 
-rate = rate_information(df_rate, rate_analytes)
+auto_pick = st.radio("Should the rate parameters be automatically selected?", ['auto', 'manual'])
+
+rate = rate_information(df_rate, rate_analytes, auto_pick == 'auto')
 if rate is not None:
     st.write(f"Calculated rate: {rate}")

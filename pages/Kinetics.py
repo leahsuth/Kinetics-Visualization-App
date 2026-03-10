@@ -92,6 +92,8 @@ if not rate_analytes:
     st.warning("Selected analytes are not available for rate calculation.")
     st.stop()
 
-rate = rate_information(df_rate, rate_analytes)
+auto_pick = st.radio("Should the rate parameters be automatically selected?", ['auto', 'manual'])
+
+rate = rate_information(df_rate, rate_analytes, auto_pick == 'auto')
 if rate is not None:
     st.write(f"Calculated rate: {rate}")

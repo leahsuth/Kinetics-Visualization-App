@@ -140,13 +140,15 @@ def excel_template_bytes() -> bytes:
 
 _, col_dl, col_guide, _ = st.columns([1, 1, 1, 1])
 with col_dl:
-    st.download_button(
+    downloaded = st.download_button(
         label="Download template",
         data=excel_template_bytes(),
         file_name="experiment_template.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
+    if downloaded:
+        st.switch_page("pages/Initial_Input.py")
 with col_guide:
     with st.popover("Column guide", use_container_width=True):
         st.markdown(

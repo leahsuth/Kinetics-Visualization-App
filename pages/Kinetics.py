@@ -1,8 +1,8 @@
 import io
 import pandas as pd
-import plotly.express as px
+from src.parsing.parsing_data import process_streamlit
+from src.figures import graph_xl
 import streamlit as st
-from src.parsing import parsing_data, parsing_initial_input
 from src.page_styling.rate_information import rate_information
 from src.figures.graph_xl import graph_from_xlsx
 from src.parsing.plotting_process import plot_process
@@ -23,24 +23,14 @@ uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
 uploaded_file.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
 
 with st.spinner("Loading data..."):
-    df = parsing_data.process_data(uploaded_file)
+    # Get Initial Data from df
+    experiment_setup = st.session_state.get("cat_loading_df")
+    final_df, first_line = process_streamlit(experiment_setup,
+                                             uploaded_file)
+    st.session_state["first_line"] = first_line
 
 #----Plotting----------------------------------------
-# Get Initial Data from df
-experiment_setup = st.session_state.get("cat_loading_df")
-setup_df = parsing_initial_input.parse_cat_loading_file(experiment_setup)
-
-df_time_and_rxn = parsing_data.add_timepoint_and_reaction(df, setup_df)
-df_w_conditions = parsing_data.add_initial_input_conditions(df_time_and_rxn, setup_df)
-final_df = parsing_data.standardize_data(df_w_conditions)
-
-# Re-read bytes for process_first_line (BytesIO pointer was consumed above)
-uploaded_file_for_first_line = io.BytesIO(st.session_state["hplc_file_bytes"])
-uploaded_file_for_first_line.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
-first_line = parsing_data.process_first_line(uploaded_file_for_first_line)
-st.session_state["first_line"] = first_line
-
-st.success(f"Loaded {len(final_df)} rows from Excel file")
+st.success("Loaded HPLC file.")
 
 if "time" in final_df.columns:
     final_df["time"] = pd.to_numeric(final_df["time"], errors="coerce")

@@ -7,7 +7,7 @@ from typing import Optional, Dict, List
 
 import streamlit as st
 import pandas as pd
-from src.parsing import parsing_initial_input
+from src.parsing.parsing_initial_input import parse_input_file
 
 st.logo(image='assets/Merck_Logo.png')
 
@@ -132,20 +132,6 @@ def normalize_well(well: str) -> Optional[str]:
     return f"{m.group(1)}{int(m.group(2))}"
 
 
-def excel_template_bytes() -> bytes:
-    df = pd.DataFrame(
-        [
-            {"Reaction": "1", "Plate_Well": "A1", "Timepoint": "0",  "Role": "Reactant", "Ligand": "LigA", "Catalyst": "Cat1"},
-            {"Reaction": "2", "Plate_Well": "A2", "Timepoint": "5",  "Role": "Product",  "Ligand": "",     "Catalyst": "Cat2"},
-            {"Reaction": "",  "Plate_Well": "",   "Timepoint": "10", "Role": "",          "Ligand": "",     "Catalyst": ""},
-        ]
-    )
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Experiment")
-    return buf.getvalue()
-
-
 def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     df = normalize_headers(df)
     reaction_col = find_col_contains(df.columns, "reaction", "rxn")
@@ -255,26 +241,16 @@ with col_cond:
         st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
         st.caption("Reactions, wells, timepoints, and roles.")
 
-        dl_col, guide_col = st.columns([1, 1])
-        with dl_col:
-            st.download_button(
-                label="Download template",
-                data=excel_template_bytes(),
-                file_name="experiment_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+        with st.popover("Column guide", use_container_width=True):
+            st.markdown(
+                "| Column | Required? | Notes |\n"
+                "|---|---|---|\n"
+                "| **Reaction** | Yes | Unique reaction ID |\n"
+                "| **Timepoint** | Yes | One row per timepoint |\n"
+                "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
+                "| **Role** | Optional | Reactant or Product |\n"
+                "| Ligand, Catalyst… | Optional | Extra condition columns |"
             )
-        with guide_col:
-            with st.popover("Column guide", use_container_width=True):
-                st.markdown(
-                    "| Column | Required? | Notes |\n"
-                    "|---|---|---|\n"
-                    "| **Reaction** | Yes | Unique reaction ID |\n"
-                    "| **Timepoint** | Yes | One row per timepoint |\n"
-                    "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
-                    "| **Role** | Optional | Reactant or Product |\n"
-                    "| Ligand, Catalyst… | Optional | Extra condition columns |"
-                )
 
         uploaded = st.file_uploader(
             "Upload conditions (.xlsx)",
@@ -440,8 +416,8 @@ if uploaded is not None:
 
         raw_df = st.session_state.get("uploaded_excel_df")
         if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
-            raw_df_norm = parsing_initial_input._normalize_cat_loading_df(raw_df)
-            rxn_df_norm = parsing_initial_input._normalize_cat_loading_df(rxn_df)
+            raw_df_norm = parse_input_file(raw_df)
+            rxn_df_norm = parse_input_file(rxn_df)
             rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
             annotated_df = raw_df_norm.merge(
                 rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")

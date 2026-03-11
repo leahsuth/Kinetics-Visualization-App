@@ -30,16 +30,11 @@ st.set_page_config(page_title="Experiment Setup", layout="wide")
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1200px; }
-      h1 { margin-bottom: 0.15rem; }
+      .block-container { padding-top: 0; padding-bottom: 2rem; max-width: 1200px; }
       div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
       .section-label {
         font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
         text-transform: uppercase; color: rgba(49,51,63,.45); margin-bottom: 4px;
-      }
-      .info-pill {
-        display: inline-block; background: #eef4ff; color: #1a56db;
-        border-radius: 20px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600;
       }
       .step-row {
         display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0.4rem 0;
@@ -47,7 +42,7 @@ st.markdown(
       .step-badge {
         display: inline-flex; align-items: center; justify-content: center;
         width: 28px; height: 28px; border-radius: 50%;
-        background: #1a56db; color: white;
+        background: #007A73; color: white;
         font-size: 0.82rem; font-weight: 700; flex-shrink: 0;
       }
       .step-title {
@@ -56,17 +51,28 @@ st.markdown(
       .upload-card-label {
         font-size: 1rem; font-weight: 700; margin-bottom: 2px;
       }
-      div[data-testid="stButton"]:has(button[key="cta_kinetics"]) button {
-        padding: 18px 24px; font-size: 1.2rem; font-weight: 700;
-        border-radius: 10px; letter-spacing: 0.01em;
-      }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("Experiment Setup")
-st.caption("Upload your conditions and HPLC files, configure reactions, then save to proceed.")
+st.markdown(
+    """
+    <div style="
+        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+        color: white;
+        padding: 1rem;
+        margin: 0 -1rem 1.5rem -1rem;
+        text-align: center;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 4px 12px rgba(0,122,115,0.2);
+    ">
+        <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em;">Experiment Setup</h1>
+        <p style="margin: 0.4rem 0 0; font-size: 1rem; opacity: 0.88;">Upload your conditions and HPLC files, configure reactions, then save to proceed.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 TEMPLATE_COLUMNS = ["Reaction", "Plate_Well", "Timepoint"]
 TEMPLATE_OPTIONAL = ["Ligand", "Catalyst"]
@@ -75,8 +81,6 @@ TEMPLATE_OPTIONAL = ["Ligand", "Catalyst"]
 def init_state() -> None:
     st.session_state.setdefault("experiment_setup", {})
     st.session_state.setdefault("show_plate_modal", True)
-    st.session_state.setdefault("multi_injections", False)
-    st.session_state.setdefault("num_injections", 1)
 
 
 init_state()
@@ -213,7 +217,6 @@ def finalize_setup(
         reactions.append(f"{rxn} | {well}{suffix}")
     return {
         "source": source,
-        "num_injections": int(st.session_state["num_injections"]),
         "timepoints": timepoints,
         "condition_columns": cond_cols,
         "reaction_rows": reaction_rows,
@@ -315,32 +318,10 @@ if uploaded is not None:
     )
 
     with st.container(border=True):
-        cfg_left, cfg_right = st.columns([1, 1.5])
-
-        with cfg_left:
-            st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
-            st.session_state["show_plate_modal"] = st.toggle(
-                "Enable", value=bool(st.session_state["show_plate_modal"])
-            )
-
-        with cfg_right:
-            st.markdown("<div class='section-label'>Injections</div>", unsafe_allow_html=True)
-            st.session_state["multi_injections"] = st.checkbox(
-                "More than one injection?",
-                value=bool(st.session_state["multi_injections"]),
-            )
-            if st.session_state["multi_injections"]:
-                st.session_state["num_injections"] = st.number_input(
-                    "Number of injections",
-                    min_value=2, max_value=100,
-                    value=max(2, int(st.session_state.get("num_injections", 2))),
-                    step=1,
-                    label_visibility="collapsed",
-                )
-            else:
-                st.session_state["num_injections"] = 1
-                st.markdown("<span class='info-pill'>1 injection</span>", unsafe_allow_html=True)
-
+        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
+        st.session_state["show_plate_modal"] = st.toggle(
+            "Enable", value=bool(st.session_state["show_plate_modal"])
+        )
         if cond_cols:
             st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
 
@@ -434,12 +415,11 @@ if setup:
     st.divider()
     with st.container(border=True):
         st.markdown("**Saved Setup**")
-        a, b, c, d = st.columns(4)
+        a, b, c = st.columns(3)
         a.metric("Reactions", len(setup.get("reaction_rows", [])))
         b.metric("Timepoints", len(setup.get("timepoints", [])))
-        c.metric("Injections", int(setup.get("num_injections", 1)))
         hplc_name = st.session_state.get("hplc_file_name", "—")
-        d.metric("HPLC File", hplc_name if hplc_name else "—")
+        c.metric("HPLC File", hplc_name if hplc_name else "—")
 
         if st.button(
             "📈  Visualize data and initial rates →",

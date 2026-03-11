@@ -35,7 +35,7 @@ def process_streamlit(cat_df, hplc_data):
     return df, first_line
 
 
-def process_manual(cat_loading_path: str, data_path: str, save_as_csv):
+def process_manual(cat_loading_path: str, data_path: str, save_as_csv=True):
     """
     Replicate the Streamlit Excel-processing pipeline on the command line.
 
@@ -64,8 +64,27 @@ def process_manual(cat_loading_path: str, data_path: str, save_as_csv):
     df = process_data(data_path, save_as_csv)
     df = add_loading_data_info(df, df_cat, save_as_csv)
     df = standardize_data(df, save_as_csv)
+    #TODO: Save the dataframe in the format that Merck sent us
     return df
 
 
 if __name__ == "__main__":
-    process_manual()
+    """
+    Run the manual parsing pipeline (cat loading + HPLC data).
+
+    Example to type into terminal to run the script:
+    python3 -m src.parsing.parsing_data
+    --initial_input "data/NB-0123-0005_Cat_Loading_Conditions.xlsx"
+    --hplc_data "data/NB-0123-0005_Cat_Loading_Data.xlsx"
+    """
+    import argparse
+    parser = argparse.ArgumentParser(description=
+                                     "Run the manual parsing pipeline")
+    parser.add_argument("--initial_input",
+                        required=True,
+                        help="Path to the initial input file.")
+    parser.add_argument("--hplc_data",
+                        required=True,
+                        help="Path to the HPLC data file.")
+    args = parser.parse_args()
+    process_manual(args.initial_input, args.hplc_data)

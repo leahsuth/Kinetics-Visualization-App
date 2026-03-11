@@ -42,6 +42,13 @@ def standardize_data(df, save_as_csv=False):
     id_cols = [c for c in df.columns if "__" not in str(c)]
     value_cols = [c for c in df.columns if "__" in str(c)]
 
+    # Pivot/groupby drops rows where any grouping key is NA. Many condition
+    # columns (e.g., role/ligand/catalyst) are optional and frequently blank,
+    # so fill object-id NAs with an empty string to preserve rows.
+    obj_id_cols = [c for c in id_cols if df[c].dtype == object]
+    if obj_id_cols:
+        df[obj_id_cols] = df[obj_id_cols].fillna("")
+
     if not value_cols:
         raise ValueError(
             "No measurement columns (with '__') found. Cannot standardize."
@@ -86,8 +93,9 @@ def standardize_data(df, save_as_csv=False):
         columns_list[i] = str(c).lower().replace(" ", "_")
     piv_data.columns = columns_list
 
-    # Drop peak rt column (not needed)
-    piv_data = piv_data.drop(columns=["peak_rt"])
+    # Drop peak rt column (not needed), added errors="ignore" to avoid errors 
+    # if the column doesn't exist
+    piv_data = piv_data.drop(columns=["peak_rt"], errors="ignore")
 
     if save_as_csv:
         piv_data.to_csv("final_data.csv", index=False)

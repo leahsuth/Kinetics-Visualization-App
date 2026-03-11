@@ -8,7 +8,7 @@ import pandas as pd
 from src.parsing import parsing_initial_input
 
 
-def _add_time_and_rxn(df, cat_df, save_as_csv=False):
+def _add_time_and_rxn(df, cat_df):
     """
     Add Time and Reaction to the dataframe.
 
@@ -18,9 +18,6 @@ def _add_time_and_rxn(df, cat_df, save_as_csv=False):
         The cleaned up HPLC data dataframe to add the time and reaction to.
     cat_df : pd.DataFrame
         The cleaned up catalyst loading dataframe.
-    save_as_csv : bool, optional
-        Whether to save the dataframe as a csv file. Default is False.
-        For testing purposes.
 
     Returns
     -------
@@ -39,16 +36,11 @@ def _add_time_and_rxn(df, cat_df, save_as_csv=False):
     df["Time"] = df["Timepoint_Number"].map(timepoint_map)
     # Convert the time column to a float
     df["Time"] = df["Time"].astype(float)
-    # Drop the timepoint number column
-    df = df.drop(columns=["Timepoint_Number"], errors="ignore")
-
-    if save_as_csv:
-        df.to_csv("time_and_rxn.csv", index=False)
 
     return df
 
 
-def _add_other_info(df, cat_df, save_as_csv: bool = False):
+def _add_other_info(df, cat_df):
     """
     Merge any reaction conditions from the initial input file to the dataframe.
     Done after time and reaction are added to the dataframe.
@@ -59,9 +51,6 @@ def _add_other_info(df, cat_df, save_as_csv: bool = False):
         The cleaned up HPLC data dataframe to add initial input conditions to.
     cat_df : pd.DataFrame
         The cleaned up initial input loading dataframe.
-    save_as_csv : bool, optional
-        Whether to save the dataframe as a csv file. Default is False.
-        For testing purposes.
 
     Returns
     -------
@@ -73,12 +62,10 @@ def _add_other_info(df, cat_df, save_as_csv: bool = False):
     lookup_copy = lookup_copy.drop(columns=["time", "well"], errors="ignore")
 
     # One row per reaction so merge is many-to-one
-    lookup_copy = cat_df.drop_duplicates(subset=["Reaction"], keep="first")
+    lookup_copy = lookup_copy.drop_duplicates(subset=["Reaction"], keep="first")
 
     merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
 
-    if save_as_csv:
-        merged.to_csv("merged_data.csv", index=False)
     return merged
 
 
@@ -102,6 +89,14 @@ def add_loading_data_info(df, cat_df, save_as_csv: bool = False):
     df : pd.DataFrame
         HPLC dataframe with the time and reaction and other information added.
     """
-    df = _add_time_and_rxn(df, cat_df, save_as_csv)
-    df = _add_other_info(df, cat_df, save_as_csv)
+    df = _add_time_and_rxn(df, cat_df)
+    df = _add_other_info(df, cat_df)
+
+    # Sort
+    first = ["Sample_Name", "Reaction", "Sample_Number", "Timepoint_Number", "Time"]
+    df = df[first + [c for c in df.columns if c not in first]]
+
+    if save_as_csv:
+        df.to_csv("dataset_with_loading_data.csv", index=False)
+
     return df

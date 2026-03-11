@@ -201,6 +201,10 @@ def process_excel(file_name, out_path, engine, save_as_csv=False):
     # get rid of injection number column
     df = df.drop(columns="Injection_Number")
 
+    # Add a sample_Number column
+    df["Sample_Number"] = pd.to_numeric(
+        df["Sample_Name"].str.extract(r"-([^-]+)$")[0]).astype("Int64")
+
     if save_as_csv:
         df.to_csv(out_path, index=False)
     return df

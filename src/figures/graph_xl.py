@@ -64,3 +64,4 @@ def graph_from_xlsx(df: pd.DataFrame, selected_reactions: list, select_reactants
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
+    return fig 

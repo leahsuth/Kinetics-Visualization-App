@@ -94,6 +94,33 @@ if not rate_analytes:
 
 auto_pick = st.radio("Should the rate parameters be automatically selected?", ['auto', 'manual'])
 
-rate = rate_information(df_rate, rate_analytes, auto_pick == 'auto')
+rate, rate_params = rate_information(df_rate, rate_analytes, auto_pick == 'auto')
 if rate is not None:
     st.write(f"Calculated rate: {rate}")
+
+# ── Download Report ──────────────────────────────────────────────────────────
+st.divider()
+st.subheader("Export Report")
+from src.page_styling.report_generator import generate_report_pdf
+try:
+    color_by = st.session_state.get("_kinetics_color_by", "reactant")
+    pdf_bytes = generate_report_pdf(
+        df=df_plot,
+        select_meas=selected_measurements,
+        color_by=color_by,
+        experiment_setup=st.session_state.get("experiment_setup", {}),
+        hplc_file_name=st.session_state.get("hplc_file_name", "-"),
+        rate_reaction=rate_reaction,
+        rate_value=rate,
+        rate_params=rate_params or {},
+    )
+    st.download_button(
+        "Download Report (.pdf)",
+        data=pdf_bytes,
+        file_name="kinetics_report.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary",
+    )
+except Exception as e:
+    st.warning(f"PDF export unavailable: {e}")

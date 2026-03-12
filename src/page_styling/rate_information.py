@@ -13,11 +13,11 @@ def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True):
     analyte = st.selectbox('Select an Analyte', analytes, index=None)
     disable = analyte == None
     if disable:
-        return
+        return None, {}
 
     k = st.number_input("Rate Constant: ", format="%0.01f", value=None, placeholder="Enter Rate Constant")
     if k is None:
-        return
+        return None, {}
 
     if auto_pick:
         C0 = df[analyte].iloc[0]
@@ -32,10 +32,12 @@ def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True):
             disabled=disable
         )
 
+    params = {"analyte": analyte, "k": k, "C0": C0, "Ce": Ce, "profile_type": profile_type}
     try:
         rate = rate_calculation(df, analyte, C0, Ce, k, profile_type)
-        return rate
+        return rate, params
     except Exception as err:
         st.error(f"Error calculating rate: {err}")
+        return None, params
 
 

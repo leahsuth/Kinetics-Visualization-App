@@ -10,6 +10,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown("""
+    <style>
+    .block-container { max-width: 98%; }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.logo(image='assets/Merck_Logo.png')
 
 def larger_banner(title, subtitle=None):
@@ -51,7 +57,7 @@ def smaller_banner(title, subtitle=None):
         color: white;
         padding: 0.35rem 0.75rem;
         margin: 0 auto 1rem;
-        width: 50%;
+        width: 85%;
         text-align: center;
         border-radius: 0 0 6px 6px;
         box-shadow: 0 4px 6px rgba(0,122,115,0.2);
@@ -79,6 +85,8 @@ def blurb(title, subtitle=None):
 
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize plates, and analyze peak areas")
 
+st.markdown("<div style='height: 4rem;'></div>", unsafe_allow_html=True)
+
 about_banner("About")
 
 blurb("""This app is designed to streamline and automate the process of visualizing and analyzing kinetic data from HPLC experiments. Currently, it supports the following features:<br><br>
@@ -91,6 +99,7 @@ blurb("""This app is designed to streamline and automate the process of visualiz
          <li>Unit conversion</li>
        </ul>""")
 
+st.markdown("<div style='height: 6rem;'></div>", unsafe_allow_html=True)
 smaller_banner("Instructions")
 
 #Slideshow
@@ -105,19 +114,19 @@ if paths:
   idx = st.session_state["slide_idx"]
 
 
-  _, col_img, _ = st.columns([1, 3, 1])
-  with col_img:
-    st.image(str(paths[idx]), width=1750)
-    st.caption(f"{idx + 1} / {n}")
-
-  # Smaller buttons via narrow columns
-  _, col_prev, col_next, _ = st.columns([1, 1, 1, 1])
+  # Put arrows on left and right of the slideshow
+  col_prev, col_img, col_next = st.columns([0.5, 6, 0.5])
   with col_prev:
-    if st.button("◀ Prev", use_container_width=True, key="prev"):
+    st.markdown("<div style='height: 12rem;'></div>", unsafe_allow_html=True)
+    if st.button("◀", use_container_width=True, key="prev"):
       st.session_state["slide_idx"] = (idx - 1) % n
       st.rerun()
+  with col_img:
+    st.image(str(paths[idx]), use_container_width=True)
+    st.caption(f"{idx + 1} / {n}")
   with col_next:
-    if st.button("Next ▶", use_container_width=True, key="next"):
+    st.markdown("<div style='height: 12rem;'></div>", unsafe_allow_html=True)
+    if st.button("▶", use_container_width=True, key="next"):
       st.session_state["slide_idx"] = (idx + 1) % n
       st.rerun()
 

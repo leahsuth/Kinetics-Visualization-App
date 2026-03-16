@@ -3,7 +3,6 @@ import streamlit as st
 from streamlit import session_state as _state
 import plotly.express as px
 import plotly.graph_objects as go
-from src.regression.linear_regression import lin_reg
 
 
 def graph_from_xlsx(df: pd.DataFrame, selected_reactions: list, select_reactants: list, select_meas: str = "peak_area"):
@@ -58,7 +57,6 @@ def graph_from_xlsx(df: pd.DataFrame, selected_reactions: list, select_reactants
             yanchor="top",
         )
     )
-
 
     st.plotly_chart(fig, use_container_width=True)
 

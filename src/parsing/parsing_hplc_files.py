@@ -171,9 +171,15 @@ def process_excel(file_name, out_path, engine, save_as_csv=False):
     level0_filled = pd.Series(level0).ffill()
     # Rebuild the MultiIndex using level 0
     df.columns = pd.MultiIndex.from_arrays([level0_filled, level1])
-    # Now flatten the MultiIndex into single-level column names
+    # Now flatten the MultiIndex into single-level column names.
+    # Normalize retention-time headers to match expected analyte names.
     flat_columns = []
     for parent, child in df.columns:
+        try:
+            if isinstance(parent, (int, float)) or (isinstance(parent, str) and parent.replace(".", "", 1).replace("-", "", 1).isdigit()):
+                parent = f"rt_{parent}"
+        except (TypeError, ValueError):
+            pass
         flat_columns.append(f"{parent}__{child}")
     df.columns = flat_columns
 

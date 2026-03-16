@@ -9,6 +9,7 @@ from src.page_styling.rate_information import rate_information, profile_picker
 from src.figures.graph_xl import graph_from_xlsx
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import rate_calculation, fit_kinetics_and_return_params, exp_func
+from src.page_styling.report_generator import generate_report_pdf
 
 
 def build_rate_summary(df_rate: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
@@ -241,3 +242,33 @@ if st.session_state["kinetics_plot_history"]:
         st.session_state["kinetics_plot_history"] = []
         st.session_state["kinetics_plotted_keys"] = set()
         st.rerun()
+
+st.divider()
+st.subheader("Export Report")
+try:
+    color_by = st.session_state.get("_kinetics_color_by", "reactant")
+    select_meas = (
+        selected_measurements
+        if isinstance(selected_measurements, str)
+        else (selected_measurements[0] if selected_measurements else "area")
+    )
+    pdf_bytes = generate_report_pdf(
+        df=df_plot,
+        select_meas=select_meas,
+        color_by=color_by,
+        experiment_setup=st.session_state.get("experiment_setup", {}),
+        hplc_file_name=st.session_state.get("hplc_file_name", "-"),
+        rate_reaction=rate_reaction,
+        rate_value=rate,
+        rate_params=rate_params or {},
+    )
+    st.download_button(
+        "Download Report (.pdf)",
+        data=pdf_bytes,
+        file_name="kinetics_report.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary",
+    )
+except Exception as e:
+    st.warning(f"PDF export unavailable: {e}")

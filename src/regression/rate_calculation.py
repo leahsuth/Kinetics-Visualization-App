@@ -72,7 +72,7 @@ def rate_calculation(
         raise ValueError(f"profile_type: {profile_type} is not a valid setting")
 
     experimental = df[analyte]
-    time = df["Time"]
+    time = df["time"]
     initial_guess = (C0, Ce, k)
 
     result = least_squares(

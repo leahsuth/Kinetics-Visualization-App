@@ -9,15 +9,18 @@ def profile_picker(C0: float, Ce: float):
     else:
         return 'growth'
 
-def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True):
+def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True, k_input=None):
     analyte = st.selectbox('Select an Analyte', analytes, index=None)
     disable = analyte == None
     if disable:
         return None, {}
 
-    k = st.number_input("Rate Constant: ", format="%0.01f", value=None, placeholder="Enter Rate Constant")
-    if k is None:
-        return None, {}
+    if k_input is not None:
+        k = float(k_input)
+    else:
+        k = st.number_input("Rate Constant: ", format="%0.01f", value=None, placeholder="Enter Rate Constant", key="rate_info_k")
+        if k is None:
+            return None, {}
 
     if auto_pick:
         C0 = df[analyte].iloc[0]

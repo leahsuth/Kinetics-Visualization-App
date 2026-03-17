@@ -92,3 +92,48 @@ def rate_calculation(
     rate = par['C0'] * (par['k']) * np.exp(-t_rate * (par['k']))
 
     return rate
+
+
+def fit_kinetics_and_return_params(
+    df: pd.DataFrame,
+    analyte: str,
+    C0: float,
+    Ce: float,
+    k: float,
+    profile_type: str = "decay",
+):
+    if analyte not in df.columns:
+        return None
+    try:
+        experimental = df[analyte].astype(float)
+        time = df["Time"].astype(float)
+    except (TypeError, ValueError):
+        return None
+    if len(experimental.dropna()) < 3:
+        return None
+
+    c_min = float(experimental.min())
+    c_max = float(experimental.max())
+    c_range = max(c_max - c_min, 1e-6)
+    # Bounds to constrain growth vs decay distinctly
+    if profile_type == "growth":
+        # C0 = initial (low), Ce = equilibrium (high): C0 < Ce
+        lb = [c_min - c_range, c_min, 1e-6]
+        ub = [c_max, c_max + c_range, 20.0]
+    else:
+        # Decay: C0 = amplitude (>= 0), Ce = baseline
+        lb = [0.0, c_min - c_range, 1e-6]
+        ub = [c_max + c_range, c_max + c_range, 20.0]
+
+    initial_guess = (float(C0), float(Ce), float(k))
+    try:
+        result = least_squares(
+            residuals,
+            initial_guess,
+            args=(experimental, time, profile_type),
+            bounds=(lb, ub),
+        )
+    except Exception:
+        return None
+    opt = result.x
+    return (float(opt[0]), float(opt[1]), float(opt[2]), profile_type)

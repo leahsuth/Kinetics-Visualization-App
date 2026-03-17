@@ -234,7 +234,7 @@ col_cond, col_hplc = st.columns(2, gap="large")
 with col_cond:
     with st.container(border=True):
         st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
-        st.caption("Reactions, wells, timepoints, and roles.")
+        st.caption("Reactions, wells, and timepoints")
 
         with st.popover("Template guide", use_container_width=True):
             st.markdown(
@@ -243,7 +243,7 @@ with col_cond:
                 "| **Reaction** | Yes | Unique reaction ID |\n"
                 "| **Timepoint** | Yes | One row per timepoint |\n"
                 "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
-                "| Condition1, Condition2… | Optional | Extra condition columns |"
+                "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
             )
 
         uploaded = st.file_uploader(

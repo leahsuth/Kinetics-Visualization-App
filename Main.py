@@ -166,5 +166,5 @@ with col_guide:
             "| **Reaction** | Yes | Unique reaction ID |\n"
             "| **Timepoint** | Yes | One row per timepoint |\n"
             "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
-            "| Condition1, Condition2… | Optional | Extra condition columns |"
+            "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
         )

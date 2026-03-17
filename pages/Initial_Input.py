@@ -74,8 +74,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-TEMPLATE_COLUMNS = ["Reaction", "Plate_Well", "Timepoint"]
-TEMPLATE_OPTIONAL = ["Ligand", "Catalyst"]
+TEMPLATE_COLUMNS = ["Reaction", "Reaction_Well", "Timepoint"]
+TEMPLATE_OPTIONAL = ["Condition1", "Condition2"]
 
 
 def init_state() -> None:
@@ -140,8 +140,7 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     df = normalize_headers(df)
     reaction_col = find_col_contains(df.columns, "reaction", "rxn")
     time_col = find_col_contains(df.columns, "timepoint", "time point", "timepoints", "tp")
-    well_col = find_col_contains(df.columns, "plate_well", "plate well", "well")
-    role_col = find_col_contains(df.columns, "role", "type")
+    well_col = find_col_contains(df.columns, "reaction_well", "reaction well", "plate_well", "plate well", "well")
 
     if reaction_col is None:
         raise ValueError('Missing required column containing "reaction".')
@@ -152,7 +151,7 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     if not timepoints:
         raise ValueError("No usable timepoints found.")
 
-    excluded = {c for c in [reaction_col, time_col, well_col, role_col] if c}
+    excluded = {c for c in [reaction_col, time_col, well_col] if c}
     cond_cols = [
         c for c in df.columns
         if c not in excluded
@@ -165,20 +164,14 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
 
     rows = []
     for i, rxn in enumerate(rxn_ids):
-        r: dict = {"Reaction": rxn, "Plate_Well": "", "Notes": "None"}
+        r: dict = {"Reaction": rxn, "Reaction_Well": "", "Notes": "None"}
         if well_col:
-            r["Plate_Well"] = str(rxn_meta.loc[i, well_col]).strip()
+            r["Reaction_Well"] = str(rxn_meta.loc[i, well_col]).strip()
         for c in cond_cols:
             r[c] = str(rxn_meta.loc[i, c]).strip()
         # Notes always starts as "None" when empty
         if not str(r.get("Notes", "")).strip():
             r["Notes"] = "None"
-        # Role: read from file if present, default to "Reactant"
-        if role_col:
-            val = str(rxn_meta.loc[i, role_col]).strip()
-            r["Role"] = val if val in ("Reactant", "Product") else "Reactant"
-        else:
-            r["Role"] = "Reactant"
         rows.append(r)
 
     return rows, timepoints, cond_cols
@@ -187,7 +180,7 @@ def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
 def build_well_info(reaction_rows: List[dict], cond_cols: List[str]) -> Dict[str, dict]:
     out: Dict[str, dict] = {}
     for r in reaction_rows:
-        well = str(r.get("Plate_Well", "")).strip()
+        well = str(r.get("Reaction_Well", "")).strip()
         if not well:
             continue
         d = dict(r)
@@ -200,7 +193,7 @@ def build_well_info(reaction_rows: List[dict], cond_cols: List[str]) -> Dict[str
 def apply_plate_mode(reaction_rows: List[dict]) -> List[dict]:
     rows = [dict(r) for r in reaction_rows]
     for r in rows:
-        r["Plate_Well"] = normalize_well(r.get("Plate_Well", "")) or str(r.get("Plate_Well", "")).strip()
+        r["Reaction_Well"] = normalize_well(r.get("Reaction_Well", "")) or str(r.get("Reaction_Well", "")).strip()
     return rows
 
 
@@ -211,7 +204,7 @@ def finalize_setup(
     reactions = []
     for r in reaction_rows:
         rxn = str(r.get("Reaction", "")).strip()
-        well = str(r.get("Plate_Well", "")).strip()
+        well = str(r.get("Reaction_Well", "")).strip()
         cond_bits = [f"{c}:{str(r.get(c,'') or '').strip()}" for c in cond_cols if str(r.get(c, "") or "").strip()]
         suffix = " | " + "  ".join(cond_bits) if cond_bits else ""
         reactions.append(f"{rxn} | {well}{suffix}")
@@ -223,7 +216,6 @@ def finalize_setup(
         "reactions": reactions,
         "well_info": well_info,
         "color_by": color_by,
-        "reaction_roles": {r["Reaction"]: r.get("Role", "Reactant") for r in reaction_rows},
     }
 
 
@@ -244,15 +236,14 @@ with col_cond:
         st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
         st.caption("Reactions, wells, timepoints, and roles.")
 
-        with st.popover("Column guide", use_container_width=True):
+        with st.popover("Template guide", use_container_width=True):
             st.markdown(
                 "| Column | Required? | Notes |\n"
                 "|---|---|---|\n"
                 "| **Reaction** | Yes | Unique reaction ID |\n"
                 "| **Timepoint** | Yes | One row per timepoint |\n"
-                "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
-                "| **Role** | Optional | Reactant or Product |\n"
-                "| Ligand, Catalyst… | Optional | Extra condition columns |"
+                "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
+                "| Condition1, Condition2… | Optional | Extra condition columns |"
             )
 
         uploaded = st.file_uploader(
@@ -381,12 +372,10 @@ if uploaded is not None:
 
     if save_clicked:
         well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
-        updated_rows = [well_info.get(r.get("Plate_Well", ""), dict(r)) for r in reaction_rows]
-        role_lookup = {r["Reaction"]: r.get("Role", "Reactant") for r in reaction_rows}
+        updated_rows = [well_info.get(r.get("Reaction_Well", ""), dict(r)) for r in reaction_rows]
         for r in updated_rows:
             if not str(r.get("Notes", "")).strip():
                 r["Notes"] = "None"
-            r.setdefault("Role", role_lookup.get(r.get("Reaction", ""), "Reactant"))
 
         st.session_state["experiment_setup"] = finalize_setup(
             "excel", updated_rows, timepoints, cond_cols, well_info, color_by

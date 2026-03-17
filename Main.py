@@ -136,9 +136,9 @@ smaller_banner("Let's Get Started!")
 def excel_template_bytes() -> bytes:
     df = pd.DataFrame(
         [
-            {"Reaction": "1", "Plate_Well": "A1", "Timepoint": "0",  "Role": "Reactant", "Ligand": "LigA", "Catalyst": "Cat1"},
-            {"Reaction": "2", "Plate_Well": "A2", "Timepoint": "5",  "Role": "Product",  "Ligand": "",     "Catalyst": "Cat2"},
-            {"Reaction": "",  "Plate_Well": "",   "Timepoint": "10", "Role": "",          "Ligand": "",     "Catalyst": ""},
+            {"Reaction": "1", "Reaction_Well": "A1", "Timepoint": "0",  "Condition1": "LigA", "Condition2": "Cat1"},
+            {"Reaction": "2", "Reaction_Well": "A2", "Timepoint": "5",  "Condition1": "",     "Condition2": "Cat2"},
+            {"Reaction": "",  "Reaction_Well": "",   "Timepoint": "10", "Condition1": "",     "Condition2": ""},
         ]
     )
     buf = io.BytesIO()
@@ -159,13 +159,12 @@ with col_dl:
     if downloaded:
         st.switch_page("pages/Initial_Input.py")
 with col_guide:
-    with st.popover("Column guide", use_container_width=True):
+    with st.popover("Template guide", use_container_width=True):
         st.markdown(
             "| Column | Required? | Notes |\n"
             "|---|---|---|\n"
             "| **Reaction** | Yes | Unique reaction ID |\n"
             "| **Timepoint** | Yes | One row per timepoint |\n"
-            "| **Plate_Well** | Yes | e.g. A1, B3 |\n"
-            "| **Role** | Optional | Reactant or Product |\n"
-            "| Ligand, Catalyst… | Optional | Extra condition columns |"
+            "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
+            "| Condition1, Condition2… | Optional | Extra condition columns |"
         )

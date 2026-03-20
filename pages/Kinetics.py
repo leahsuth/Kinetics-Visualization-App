@@ -107,8 +107,7 @@ df_rate = df_rate.pivot_table(
     values = selected_measurements,
     aggfunc = "mean",
 ).reset_index()
-df_rate = df_rate.rename(columns={"time": "Time"})
-df_rate = df_rate.sort_values(by="Time")
+df_rate = df_rate.sort_values(by="time")
 
 rate_analytes = [a for a in selected_analytes if a in df_rate.columns]
 if not rate_analytes:

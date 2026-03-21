@@ -4,36 +4,17 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 from src.parsing.parsing_data import process_streamlit
-from src.figures import graph_xl
 from src.page_styling.rate_information import rate_information, profile_picker
 from src.figures.graph_xl import graph_from_xlsx
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import rate_calculation, fit_kinetics_and_return_params, exp_func
 from src.page_styling.report_generator import generate_report_pdf
 
-
-def build_rate_summary(df_rate: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
-    """Calculate rate for each analyte and return summary DataFrame."""
-    rows = []
-    for analyte in analytes:
-        if analyte not in df_rate.columns:
-            rows.append({"Analyte": analyte, "Rate": None})
-            continue
-        C0 = df_rate[analyte].iloc[0]
-        Ce = df_rate[analyte].iloc[-1]
-        profile_type = profile_picker(C0, Ce)
-        try:
-            r = rate_calculation(df_rate, analyte, C0, Ce, k, profile_type)
-        except Exception:
-            r = None
-        rows.append({"Analyte": analyte, "Rate": r})
-    return pd.DataFrame(rows)
-
-
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
-#----Data Source----------------------------------------
+
+# ----Data Source----------------------------------------
 if "hplc_file_bytes" not in st.session_state:
     st.info("Please upload an HPLC file on the Experiment Setup page to begin.")
     st.stop()
@@ -52,7 +33,7 @@ with st.spinner("Loading data..."):
                                              uploaded_file)
     st.session_state["first_line"] = first_line
 
-#----Plotting----------------------------------------
+# ----Plotting----------------------------------------
 st.success("Loaded HPLC file.")
 
 if "time" in final_df.columns:
@@ -84,17 +65,104 @@ if not selected_analytes:
     st.warning("Please select at least one analyte.")
     st.stop()
 
+time_units = ["hours", "minutes", "seconds", "days"]
+default_time_unit = st.session_state.get("_kinetics_time_unit", "hours")
+if default_time_unit not in time_units:
+    default_time_unit = "hours"
 
-# Pre-processing for plotting
-df_plot, selected_measurements = plot_process(df_plot, selected_reactions, selected_analytes)
+time_unit = st.selectbox(
+    "Time units",
+    options=time_units,
+    index=time_units.index(default_time_unit),
+)
+st.session_state["_kinetics_time_unit"] = time_unit
 
-graph_from_xlsx(df_plot, selected_reactions, selected_analytes, selected_measurements)
+# ----Pre-processing for plotting----------------------------------------
+df_plot, selected_measurements = plot_process(df_plot,
+                                              selected_reactions,
+                                              selected_analytes,
+                                              )
 
-#----Initial Rate----------------------------------------
+# ----Multiple plots (per-reaction, grid layout)----------------------
+color_options = [c for c in ["reactant", "reaction"] if c in df_plot.columns]
+default_color_by = st.session_state.get("_kinetics_color_by", "reactant")
+if default_color_by not in color_options:
+    default_color_by = color_options[0] if color_options else "reactant"
+
+color_by = st.radio(
+    "Color by:",
+    color_options or ["reactant"],
+    index=(color_options.index(default_color_by)
+           if color_options and default_color_by in color_options else 0),
+)
+st.session_state["_kinetics_color_by"] = color_by
+
+chart_type = st.radio(
+    "Chart type",
+    ["Scatter", "Line"],
+    horizontal=True,
+    key="time_series_chart_type",
+)
+
+multi_plot_choice = st.radio(
+    "Visualize reaction data in multiple plots?",
+    ["No", "Yes"],
+    index=0,
+    horizontal=True,
+)
+
+reactions_for_plots: list[str] = []
+if multi_plot_choice == "Yes":
+    reactions_for_plots = st.multiselect(
+        "Reactions to display as separate plots.",
+        options=selected_reactions,
+        default=None,
+    )
+
+if reactions_for_plots:
+    # Render up to two plots per row
+    for i in range(0, len(reactions_for_plots), 2):
+        row_reactions = reactions_for_plots[i : i + 2]
+        cols = st.columns(len(row_reactions))
+        for col, rxn in zip(cols, row_reactions):
+            with col:
+                df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
+                if not df_rxn.empty:
+                    fig = graph_from_xlsx(
+                        df=df_rxn,
+                        select_meas=selected_measurements,
+                        color_select=color_by,
+                        chart_type=chart_type,
+                        title_suffix=f"Reaction {rxn}",
+                        time_unit=time_unit,
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+# plot remaining reactions in a single plot
+remaining_reactions = [r for r in selected_reactions
+                       if r not in reactions_for_plots]
+if remaining_reactions:
+    df_remaining = df_plot[df_plot["reaction"].
+                           astype(str).isin(remaining_reactions)]
+    fig = graph_from_xlsx(
+        df=df_remaining,
+        select_meas=selected_measurements,
+        color_select=color_by,
+        chart_type=chart_type,
+        time_unit=time_unit,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+first_line = st.session_state["first_line"]
+st.caption(first_line)
+
+# ----Initial Rate----------------------------------------
 st.divider()
 st.write("# Initial Rate Calculations")
 
-rate_reaction = st.selectbox("Reaction for rate calculation", selected_reactions, index=0)
+rate_reaction = st.selectbox("Reaction for rate calculation",
+                             selected_reactions,
+                             index=0)
 
 df_rate = df_plot[df_plot["reaction"].astype(str) == str(rate_reaction)].copy()
 if df_rate.empty:
@@ -102,10 +170,10 @@ if df_rate.empty:
     st.stop()
 
 df_rate = df_rate.pivot_table(
-    index = "time",
-    columns = "reactant",
-    values = selected_measurements,
-    aggfunc = "mean",
+    index="time",
+    columns="reactant",
+    values=selected_measurements,
+    aggfunc="mean",
 ).reset_index()
 df_rate = df_rate.sort_values(by="time")
 
@@ -130,6 +198,27 @@ if "kinetics_plotted_keys" not in st.session_state:
 
 # Controls: reaction, analyte, profile, plus summary
 st.write("### Controls")
+
+
+def build_rate_summary(df_rate: pd.DataFrame, analytes: list, k: float) \
+                       -> pd.DataFrame:
+    """Calculate rate for each analyte and return summary DataFrame."""
+    rows = []
+    for analyte in analytes:
+        if analyte not in df_rate.columns:
+            rows.append({"Analyte": analyte, "Rate": None})
+            continue
+        C0 = df_rate[analyte].iloc[0]
+        Ce = df_rate[analyte].iloc[-1]
+        profile_type = profile_picker(C0, Ce)
+        try:
+            r = rate_calculation(df_rate, analyte, C0, Ce, k, profile_type)
+        except Exception:
+            r = None
+        rows.append({"Analyte": analyte, "Rate": r})
+    return pd.DataFrame(rows)
+
+
 summary_df = build_rate_summary(df_rate, rate_analytes, k_constant)
 st.dataframe(summary_df, use_container_width=True)
 
@@ -140,8 +229,10 @@ new_plot_added = False
 if choose_analyte and choose_analyte in df_rate.columns:
     single_df = df_rate[["Time", choose_analyte]].copy()
     single_df["Time"] = pd.to_numeric(single_df["Time"], errors="coerce")
-    single_df[choose_analyte] = pd.to_numeric(single_df[choose_analyte], errors="coerce")
-    single_df = single_df.dropna(subset=["Time", choose_analyte]).sort_values("Time").reset_index(drop=True)
+    single_df[choose_analyte] = pd.to_numeric(single_df[choose_analyte],
+                                              errors="coerce")
+    single_df = single_df.dropna(subset=["Time", choose_analyte]).\
+        sort_values("Time").reset_index(drop=True)
 
     if len(single_df) >= 3:
         C0_init = float(single_df[choose_analyte].iloc[0])
@@ -150,12 +241,13 @@ if choose_analyte and choose_analyte in df_rate.columns:
         profile_type = st.radio(
             "Profile type for fit",
             ["growth", "decay"],
-            index = 0 if default_profile == "growth" else 1,
-            key = "curve_profile",
-            help = "Growth: C = Ce + (C0-Ce)*exp(-kt). Decay: C = C0*exp(-kt)+Ce.",
+            index=0 if default_profile == "growth" else 1,
+            key="curve_profile",
+            help="Growth: C = Ce + (C0-Ce)*exp(-kt). Decay: C = C0*exp(-kt)+Ce.",
         )
         result = fit_kinetics_and_return_params(
-            single_df, choose_analyte, C0_init, Ce_init, k_constant, profile_type
+            single_df, choose_analyte, C0_init,
+            Ce_init, k_constant, profile_type
         )
         if result is not None:
             C0, Ce, k = result[0], result[1], result[2]
@@ -174,29 +266,29 @@ if choose_analyte and choose_analyte in df_rate.columns:
             fig = go.Figure()
             fig.add_trace(
                 go.Scatter(
-                    x = single_df["Time"],
-                    y = single_df[choose_analyte],
-                    mode = "markers",
-                    name = "data",
+                    x=single_df["Time"],
+                    y=single_df[choose_analyte],
+                    mode="markers",
+                    name="data",
                 )
             )
             fig.add_trace(
                 go.Scatter(
-                    x = t_fine,
-                    y = y_fit,
-                    mode = "lines",
-                    name = "fitted curve",
-                    line = dict(color="#E53935", width=2),
+                    x=t_fine,
+                    y=y_fit,
+                    mode="lines",
+                    name="fitted curve",
+                    line=dict(color="#E53935", width=2),
                 )
             )
             fig.update_layout(
-                title = f"{choose_analyte} with exponential fit",
-                xaxis_title = "Time",
-                yaxis_title = selected_measurements,
-                width = 400,
-                height = 250,
+                title=f"{choose_analyte} with exponential fit",
+                xaxis_title=f"Time ({time_unit})",
+                yaxis_title=selected_measurements,
+                width=400,
+                height=250,
             )
-            # Add to history when reaction, analyte, or profile has been changed
+            # Add to history when reaction, analyte, or profile has changed
             plot_key = (rate_reaction, choose_analyte, profile_type)
             if plot_key not in st.session_state["kinetics_plotted_keys"]:
                 rate_table = pd.DataFrame([

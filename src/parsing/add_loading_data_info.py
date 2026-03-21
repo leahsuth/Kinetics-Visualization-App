@@ -96,6 +96,8 @@ def add_loading_data_info(df, cat_df, save_as_csv: bool = False):
     first = ["Sample_Name", "Reaction", "Sample_Number", "Timepoint_Number", "Time"]
     df = df[first + [c for c in df.columns if c not in first]]
 
+    df = df.sort_values(by=["Reaction", "Time"])
+
     if save_as_csv:
         df.to_csv("dataset_with_loading_data.csv", index=False)
 

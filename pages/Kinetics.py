@@ -166,7 +166,6 @@ rate_reaction = st.selectbox("Reaction for rate calculation",
                              index=0)
 
 df_rate = df_plot[df_plot["reaction"].astype(str) == str(rate_reaction)].copy()
-st.write(df_rate)
 if df_rate.empty:
     st.warning("No data available for rate calculation with current filters.")
     st.stop()
@@ -174,7 +173,7 @@ if df_rate.empty:
 df_rate = df_rate.pivot_table(
     index="time",
     columns="reactant",
-    values=selected_measurements,
+    values="peak_ap",
     aggfunc="mean",
 ).reset_index()
 df_rate = df_rate.sort_values(by="time")

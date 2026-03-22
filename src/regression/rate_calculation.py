@@ -106,7 +106,7 @@ def fit_kinetics_and_return_params(
         return None
     try:
         experimental = df[analyte].astype(float)
-        time = df["Time"].astype(float)
+        time = df["time"].astype(float)
     except (TypeError, ValueError):
         return None
     if len(experimental.dropna()) < 3:

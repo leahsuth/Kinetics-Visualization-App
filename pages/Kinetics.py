@@ -228,7 +228,7 @@ new_plot_added = False
 
 if choose_analyte and choose_analyte in df_rate.columns:
     single_df = df_rate[["Time", choose_analyte]].copy()
-    single_df["Time"] = pd.to_numeric(single_df["Time"], errors="coerce")
+    single_df["time"] = pd.to_numeric(single_df["time"], errors="coerce")
     single_df[choose_analyte] = pd.to_numeric(single_df[choose_analyte],
                                               errors="coerce")
     single_df = single_df.dropna(subset=["Time", choose_analyte]).\

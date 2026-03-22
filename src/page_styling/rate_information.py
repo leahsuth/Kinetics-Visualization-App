@@ -35,7 +35,13 @@ def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True, k
             disabled=disable
         )
 
-    params = {"analyte": analyte, "k": k, "C0": C0, "Ce": Ce, "profile_type": profile_type}
+    params = {
+        "analyte": analyte,
+        "k": k,
+        "C0": C0,
+        "Ce": Ce,
+        "profile_type": profile_type
+    }
     try:
         rate = rate_calculation(df, analyte, C0, Ce, k, profile_type)
         return rate, params

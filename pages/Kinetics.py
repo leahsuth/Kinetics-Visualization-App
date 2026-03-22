@@ -78,11 +78,11 @@ time_unit = st.selectbox(
 st.session_state["_kinetics_time_unit"] = time_unit
 
 # ----Pre-processing for plotting----------------------------------------
+# INFO: peak_area vs AP is being set here
 df_plot, selected_measurements = plot_process(df_plot,
                                               selected_reactions,
                                               selected_analytes,
                                               )
-st.write(df_plot)
 
 # ----Multiple plots (per-reaction, grid layout)----------------------
 color_options = [c for c in ["reactant", "reaction"] if c in df_plot.columns]

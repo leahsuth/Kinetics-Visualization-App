@@ -82,6 +82,7 @@ df_plot, selected_measurements = plot_process(df_plot,
                                               selected_reactions,
                                               selected_analytes,
                                               )
+st.write(df_plot)
 
 # ----Multiple plots (per-reaction, grid layout)----------------------
 color_options = [c for c in ["reactant", "reaction"] if c in df_plot.columns]
@@ -165,6 +166,7 @@ rate_reaction = st.selectbox("Reaction for rate calculation",
                              index=0)
 
 df_rate = df_plot[df_plot["reaction"].astype(str) == str(rate_reaction)].copy()
+st.write(df_rate)
 if df_rate.empty:
     st.warning("No data available for rate calculation with current filters.")
     st.stop()
@@ -227,12 +229,12 @@ choose_analyte = rate_params.get("analyte")
 new_plot_added = False
 
 if choose_analyte and choose_analyte in df_rate.columns:
-    single_df = df_rate[["Time", choose_analyte]].copy()
+    single_df = df_rate[["time", choose_analyte]].copy()
     single_df["time"] = pd.to_numeric(single_df["time"], errors="coerce")
     single_df[choose_analyte] = pd.to_numeric(single_df[choose_analyte],
                                               errors="coerce")
-    single_df = single_df.dropna(subset=["Time", choose_analyte]).\
-        sort_values("Time").reset_index(drop=True)
+    single_df = single_df.dropna(subset=["time", choose_analyte]).\
+        sort_values("time").reset_index(drop=True)
 
     if len(single_df) >= 3:
         C0_init = float(single_df[choose_analyte].iloc[0])
@@ -252,8 +254,8 @@ if choose_analyte and choose_analyte in df_rate.columns:
         if result is not None:
             C0, Ce, k = result[0], result[1], result[2]
             par = {"C0": C0, "Ce": Ce, "k": k}
-            t_min = float(single_df["Time"].min())
-            t_max = float(single_df["Time"].max())
+            t_min = float(single_df["time"].min())
+            t_max = float(single_df["time"].max())
             t_fine = np.linspace(t_min, t_max, 100)
             y_fit = exp_func(C0, Ce, k, t_fine, profile_type)
 
@@ -266,7 +268,7 @@ if choose_analyte and choose_analyte in df_rate.columns:
             fig = go.Figure()
             fig.add_trace(
                 go.Scatter(
-                    x=single_df["Time"],
+                    x=single_df["time"],
                     y=single_df[choose_analyte],
                     mode="markers",
                     name="data",

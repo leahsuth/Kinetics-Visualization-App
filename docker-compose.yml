@@ -6,4 +6,6 @@ services:
     image: merck-kinetics
     ports:
       - "8501:8501"
+    volumes:
+      - .:/app:z
 

@@ -17,11 +17,11 @@ def result():
 def config_df():
     return pd.read_excel(str(CONFIG_PATH))
 
-def test_process_data_csv_renames_first_column(result):
-
+def test_basic_processing(result):
     assert result.columns[0] == "sample_name"
     assert result["sample_name"].notna().all()
     assert len(result) > 0
+    assert isinstance(result, pd.DataFrame)
 
 def test_processed_date_shape(result):
     target_cols = [
@@ -36,10 +36,8 @@ def test_processed_date_shape(result):
         'peak_ap',
         'peak_area'
     ]
-
     for col in target_cols:
         assert col in result.columns
-
     assert len(target_cols) == len(result.columns)
 
 def test_reaction_number(result, config_df):

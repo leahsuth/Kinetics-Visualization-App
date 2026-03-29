@@ -24,7 +24,7 @@ def update_reaction_suffix(df: pd.DataFrame):
     Update the reaction suffix to include all reactions.
     """
     if "reaction" not in df.columns:
-        return None
+        raise ValueError("reaction not in dataframe")
     reactions = (
         df["reaction"]
         .dropna()

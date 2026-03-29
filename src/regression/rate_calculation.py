@@ -19,11 +19,11 @@ def exp_func(C0,Ce,k,t, profile_type):
     if profile_type == 'growth':
         C = Ce + (C0-Ce)*np.exp(-k*t)
         return C
-    
-    elif profile_type == 'decay':
-        C = C0*np.exp(-k*t)+Ce
+
+    elif profile_type == "decay":
+        C = Ce + C0 * np.exp(-k * t)
         return C
-    
+
     else:
         raise ValueError('Profile type not recognized')
 
@@ -52,7 +52,7 @@ def rate_calculation(
     C0: float,
     Ce: float,
     k: float,
-    profile_type: str = "decay",
+    profile_type: str,
 ):
     '''Function to calculate reaction rate
     Args:
@@ -70,6 +70,9 @@ def rate_calculation(
 
     if profile_type not in ['growth', 'decay']:
         raise ValueError(f"profile_type: {profile_type} is not a valid setting")
+
+    if k <= 0:
+        raise ValueError(f"Invalid value of k: {k}, must be greater than zero")
 
     experimental = df[analyte]
     time = df["time"]
@@ -103,7 +106,7 @@ def fit_kinetics_and_return_params(
     profile_type: str = "decay",
 ):
     if analyte not in df.columns:
-        return None
+        raise ValueError(f"Analyte {analyte} not present in dataframe")
     try:
         experimental = df[analyte].astype(float)
         time = df["time"].astype(float)

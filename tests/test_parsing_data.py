@@ -6,9 +6,6 @@ import pytest
 from src.parsing.parsing_data import process_data, process_manual
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-CSV_PATH = DATA_DIR / "Example_Data_SpiroXantPhos.csv"
-XLSX_TWO_SHEETS_PATH = DATA_DIR / "Example_ChemStation_Data_GPT_TWOSHEETSONEEXPERIMENT.xlsx"
-XLSX_ONE_SHEET_PATH = DATA_DIR / "Example_ChemStation_Data_NB-0123-0002_ONESHEET.xlsx"
 CONFIG_PATH = DATA_DIR / "NB-0123-0005_Cat_Loading_Conditions.xlsx"
 DATA_PATH = DATA_DIR / "NB-0123-0005_Cat_Loading_Data.xlsx"
 

@@ -5,7 +5,7 @@ Any other columns from the initial input file are added as well.
 They'll be visible in the plot as the user hovers over the data points.
 """
 import pandas as pd
-from src.parsing import parsing_initial_input
+from src.parsing import parsing_cat_loading_conditions as cat_conditions
 
 
 def _add_time_and_rxn(df, cat_df):
@@ -26,14 +26,14 @@ def _add_time_and_rxn(df, cat_df):
     """
 
     # Get the number of reactions and the timepoint map
-    num_of_reactions = parsing_initial_input.num_reactions(cat_df)
-    timepoint_map = parsing_initial_input.timepoint_map(cat_df)
+    num_of_reactions = cat_conditions.num_reactions(cat_df)
+    tp_map = cat_conditions.timepoint_map(cat_df)
 
     # Add the reaction and time columns to the dataframe
     df["Reaction"] = (df.index % num_of_reactions) + 1
 
     df["Timepoint_Number"] = df.index // num_of_reactions
-    df["Time"] = df["Timepoint_Number"].map(timepoint_map)
+    df["Time"] = df["Timepoint_Number"].map(tp_map)
     # Convert the time column to a float
     df["Time"] = df["Time"].astype(float)
 

@@ -96,7 +96,7 @@ def _edit_well_dialog(well_id: str, info: Dict[str, dict], key_prefix: str) -> N
 
     editable = sorted([
         k for k in d
-        if k not in {"Reaction", "Notes", "Plate_Well", "_custom_color", "Conditions", "Label"}
+        if k not in {"Reaction", "Notes", "Reaction_Well", "_custom_color", "Conditions", "Label"}
     ])
     for k in editable:
         d[k] = st.text_input(

@@ -88,9 +88,14 @@ def rate_calculation(
     # calculate rate depending on the profile type
     t_rate = 0
     if profile_type == 'growth':
-        rate = par['k'] * (par['Ce'] - par['C0'])*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*(Ce-C0)
+        rate = par['k'] * (par['Ce'] - par['C0']) # initial rate at t=0 is k*(Ce-C0)
     else:
-        rate = par['k'] * par['C0']*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*C0
+        rate = par['k'] * par['C0'] # initial rate at t=0 is k*C0
+
+    #if profile_type == 'growth':
+        #rate = par['k'] * (par['Ce'] - par['C0'])*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*(Ce-C0)
+   # else:
+        #rate = par['k'] * par['C0']*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*C0
 
     return rate
 

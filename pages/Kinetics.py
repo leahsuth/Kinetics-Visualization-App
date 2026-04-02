@@ -40,7 +40,9 @@ with st.spinner("Loading data..."):
         uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
         uploaded_file.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
         experiment_setup = st.session_state.get("cat_loading_df")
-        final_df, first_line = process_streamlit(experiment_setup, uploaded_file)
+        final_df, df_after_add_loading, first_line = process_streamlit(
+            experiment_setup, uploaded_file
+        )
         st.session_state["first_line"] = first_line
 
 # ----Plotting----------------------------------------
@@ -483,3 +485,21 @@ if not is_preprocessed:
         )
     except Exception as e:
         st.warning(f"PDF export unavailable: {e}")
+
+    st.divider()
+    st.subheader("Download data file")
+    st.caption(
+        "HPLC data file after **add_loading_data_info** (experiment conditions, reaction, time merged in)."
+    )
+    _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
+    _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+    _merged_csv = df_after_add_loading.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download processed data (.csv)",
+        data=_merged_csv,
+        file_name=f"{_stem}_processed.csv",
+        mime="text/csv",
+        use_container_width=True,
+        type="primary",
+        key="chemstation_download_processed_csv",
+    )

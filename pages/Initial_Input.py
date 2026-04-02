@@ -90,8 +90,27 @@ source_choice = st.selectbox(
     "Select data source type",
     ("ChemStation", "Preprocessed"),
     index=None,
-    help="Choose ChemStation for raw export + setup, or Preprocessed for ready-to-plot data.",
+    help="Choose ChemStation for data directly from ChemStation, or Preprocessed for ready-to-plot data.",
 )
+
+with st.expander("Which data source type should I choose?", expanded=False):
+    st.markdown(
+        """
+**ChemStation** — Use this when you are working from **Agilent ChemStation exports**
+and want the app to tie experiments to a **conditions** spreadsheet.
+
+- You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
+- You map reactions, wells, and timepoints, and can use the **plate editor**.
+
+**Preprocessed** — Use this when you already have a **single table** of kinetics that is
+**ready to plot** (time column + one column per analyte).
+
+- You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
+- Reactions are inferred from the file (e.g. when time resets between runs).
+- Open **How preprocessed files should look** below after selecting Preprocessed for an example layout.
+
+        """
+    )
 
 # ── helpers ────────────────────────────────────────────────────────────────
 

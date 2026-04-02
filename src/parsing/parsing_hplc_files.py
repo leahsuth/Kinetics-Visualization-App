@@ -5,6 +5,8 @@ Extract the first line/row for description/metadata.
 
 import pandas as pd
 from pathlib import Path
+from src.parsing.parse_file_type import read_input
+
 
 
 def process_first_line(file_name):

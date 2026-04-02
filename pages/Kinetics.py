@@ -13,6 +13,24 @@ from src.page_styling.report_generator import generate_report_pdf
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
+# Make all st.button(type="primary") red (does not affect st.download_button)
+st.markdown(
+    """
+    <style>
+    div[data-testid="stButton"] button[kind="primary"] {
+        background-color: #c62828 !important;
+        border-color: #c62828 !important;
+        color: white !important;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover {
+        background-color: #b71c1c !important;
+        border-color: #b71c1c !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ----Data Source----------------------------------------
 if "hplc_file_bytes" not in st.session_state:
@@ -64,6 +82,13 @@ selected_analytes = st.multiselect(
 if not selected_analytes:
     st.warning("Please select at least one analyte.")
     st.stop()
+
+# Auto-remove history plots for analytes the user has deselected
+if "kinetics_plot_history" in st.session_state:
+    st.session_state["kinetics_plot_history"] = [
+        h for h in st.session_state["kinetics_plot_history"]
+        if h["analyte"] in selected_analytes
+    ]
 
 time_units = ["hours", "minutes", "seconds", "days"]
 default_time_unit = st.session_state.get("_kinetics_time_unit", "hours")
@@ -179,8 +204,10 @@ k_constant = st.number_input(
 
 if "kinetics_plot_history" not in st.session_state:
     st.session_state["kinetics_plot_history"] = []
-if "kinetics_plotted_keys" not in st.session_state:
-    st.session_state["kinetics_plotted_keys"] = set()
+# Tracks (reaction, analyte, profile) tuples the user explicitly deleted via X.
+# Prevents the fit-generation block from re-adding them on the next rerun.
+if "kinetics_excluded_keys" not in st.session_state:
+    st.session_state["kinetics_excluded_keys"] = set()
 if "kinetics_clear_counter" not in st.session_state:
     st.session_state["kinetics_clear_counter"] = 0
 
@@ -245,6 +272,10 @@ if generate_plots == "Yes":
         value=False,
         key="manual_profile_select",
     )
+    # Accumulate every (rxn, analyte) pair currently chosen across all reactions.
+    # Used after the loop to auto-remove plots for deselected analytes.
+    chosen_rxn_analytes: set = set()
+
     for rxn in selected_reactions:
         df_pivot = df_rate_by_rxn.get(rxn)
         if df_pivot is None:
@@ -259,6 +290,7 @@ if generate_plots == "Yes":
             rxn_analytes,
             key=f"fit_analytes_{rxn}_{_cc}",
         )
+        chosen_rxn_analytes.update((rxn, a) for a in chosen_analytes)
         for analyte in chosen_analytes:
             single_df = (
                 df_pivot[["time", analyte]]
@@ -301,7 +333,13 @@ if generate_plots == "Yes":
                     rate_val = C0 * k_fit
 
                 plot_key = (rxn, analyte, profile_type)
-                if plot_key not in st.session_state["kinetics_plotted_keys"]:
+                already_exists = any(
+                    h["reaction"] == rxn and h["analyte"] == analyte
+                    and h["profile_type"] == profile_type
+                    for h in st.session_state["kinetics_plot_history"]
+                )
+                is_excluded = plot_key in st.session_state["kinetics_excluded_keys"]
+                if not already_exists and not is_excluded:
                     fig = go.Figure()
                     fig.add_trace(
                         go.Scatter(
@@ -347,37 +385,79 @@ if generate_plots == "Yes":
                         "t_fine": t_fine.tolist(),
                         "y_fit": y_fit.tolist(),
                     })
-                    st.session_state["kinetics_plotted_keys"].add(plot_key)
 
-# ---- Display fit plot history grouped by reaction ----
+    # Remove history plots for (rxn, analyte) pairs the user has deselected.
+    # Not added to excluded_keys so they can be re-added by re-selecting.
+    st.session_state["kinetics_plot_history"] = [
+        h for h in st.session_state["kinetics_plot_history"]
+        if (h["reaction"], h["analyte"]) in chosen_rxn_analytes
+    ]
+
+# ---- Display fit plot history: outer group = analyte, inner = reactions 2/row ----
+if "kinetics_remove_idx" not in st.session_state:
+    st.session_state["kinetics_remove_idx"] = None
+
+# Process any pending deletion before rendering widgets
+if st.session_state["kinetics_remove_idx"] is not None:
+    idx_to_remove = st.session_state["kinetics_remove_idx"]
+    st.session_state["kinetics_remove_idx"] = None
+    history = st.session_state["kinetics_plot_history"]
+    if 0 <= idx_to_remove < len(history):
+        removed = history.pop(idx_to_remove)
+        st.session_state["kinetics_excluded_keys"].add(
+            (removed["reaction"], removed["analyte"], removed["profile_type"])
+        )
+    st.rerun()
+
 if st.session_state["kinetics_plot_history"]:
     st.divider()
     st.write("### Generated Fit Plots")
 
-    # Group items by reaction, preserving insertion order
+    hdr_col, btn_col = st.columns([3, 1])
+    with hdr_col:
+        st.caption("Clear plots to reset plotting settings and start fresh.")
+    with btn_col:
+        if st.button("Clear all plots", key="clear_plots", type="primary",
+                     use_container_width=True):
+            st.session_state["kinetics_plot_history"] = []
+            st.session_state["kinetics_excluded_keys"] = set()
+            st.session_state["kinetics_clear_counter"] += 1
+            st.rerun()
+
     from collections import defaultdict
-    groups: dict = defaultdict(list)
-    for item in st.session_state["kinetics_plot_history"]:
-        groups[item["reaction"]].append(item)
+    # Group by analyte so same-analyte plots across reactions sit next to each other
+    analyte_groups: dict = defaultdict(list)
+    for idx, item in enumerate(st.session_state["kinetics_plot_history"]):
+        analyte_groups[item["analyte"]].append((idx, item))
 
-    for rxn, items in groups.items():
-        st.write(f"#### Reaction {rxn}")
-        # Render up to 2 plots per row
-        for i in range(0, len(items), 2):
-            row_items = items[i : i + 2]
-            cols = st.columns(len(row_items))
-            for col, item in zip(cols, row_items):
+    for analyte, indexed_items in analyte_groups.items():
+        st.write(f"#### {analyte}")
+        for i in range(0, len(indexed_items), 2):
+            row = indexed_items[i : i + 2]
+            cols = st.columns(len(row))
+            for col, (idx, item) in zip(cols, row):
                 with col:
-                    st.caption(f"{item['analyte']} ({item['profile_type']})")
+                    hdr_left, hdr_right = st.columns([5, 1])
+                    with hdr_left:
+                        st.caption(f"Reaction {item['reaction']} ({item['profile_type']})")
+                    with hdr_right:
+                        if st.button("✕", key=f"del_plot_{idx}", help="Remove this plot"):
+                            st.session_state["kinetics_remove_idx"] = idx
+                            st.rerun()
                     st.plotly_chart(item["fig"], use_container_width=True)
-                    st.dataframe(item["rate_table"], use_container_width=True, hide_index=True)
+                    rt = item["rate_table"].iloc[0]
+                    st.markdown(
+                        f"<div style='border: 2.5px solid #555; border-radius: 6px; "
+                        f"padding: 6px 10px; display: inline-block; font-size: 0.82em; "
+                        f"line-height: 1.8;'>"
+                        f"<b>Rate:</b> {rt['Rate']:.4f}<br>"
+                        f"<b>C\u2080:</b> {rt['C0']:.4f} &nbsp; "
+                        f"<b>C\u2091:</b> {rt['Ce']:.4f} &nbsp; "
+                        f"<b>k:</b> {rt['k']:.4f}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
         st.divider()
-
-    if st.button("Clear all plots", key="clear_plots"):
-        st.session_state["kinetics_plot_history"] = []
-        st.session_state["kinetics_plotted_keys"] = set()
-        st.session_state["kinetics_clear_counter"] += 1
-        st.rerun()
 
 st.divider()
 st.subheader("Export Report")

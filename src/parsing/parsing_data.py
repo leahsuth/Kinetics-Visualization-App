@@ -26,13 +26,16 @@ def process_streamlit(cat_df, hplc_data):
     -------
     df_standardized : pd.DataFrame
         The standardized HPLC data dataframe.
+    df_after_add_loading : pd.DataFrame
+        Data for download on Streamlit app
     first_line : str
     """
     first_line = process_first_line(hplc_data)
     df = process_data(hplc_data)
     df = add_loading_data_info(df, cat_df)
+    df_after_add_loading = df.copy()
     df = standardize_data(df)
-    return df, first_line
+    return df, df_after_add_loading, first_line
 
 
 def process_manual(cat_loading_path: str, data_path: str, save_as_csv=True):
@@ -64,7 +67,6 @@ def process_manual(cat_loading_path: str, data_path: str, save_as_csv=True):
     df = process_data(data_path, save_as_csv)
     df = add_loading_data_info(df, df_cat, save_as_csv)
     df = standardize_data(df, save_as_csv)
-    #TODO: Save the dataframe in the format that Merck sent us
     return df
 
 

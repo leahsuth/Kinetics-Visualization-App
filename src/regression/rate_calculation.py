@@ -91,14 +91,19 @@ def rate_calculation(
         "Ce": opt_params[1],
         "k": opt_params[2],
     }
-
-    # time at which rate is calculated, for initial rate, t_rate = 0
+    # calculate rate depending on the profile type
     t_rate = 0
+    if profile_type == 'growth':
+        rate = par['k'] * (par['Ce'] - par['C0']) # initial rate at t=0 is k*(Ce-C0)
+    else:
+        rate = par['k'] * par['C0'] # initial rate at t=0 is k*C0
 
-    rate = par["C0"] * (par["k"]) * np.exp(-t_rate * (par["k"]))
+    #if profile_type == 'growth':
+        #rate = par['k'] * (par['Ce'] - par['C0'])*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*(Ce-C0)
+   # else:
+        #rate = par['k'] * par['C0']*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*C0
 
     return rate
-
 
 def fit_kinetics_and_return_params(
     df: pd.DataFrame,

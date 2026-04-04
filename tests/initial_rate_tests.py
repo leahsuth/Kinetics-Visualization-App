@@ -1,11 +1,7 @@
-import pytest
-import numpy as np
 import pandas as pd
+import pytest
 from pathlib import Path
 
-from src.parsing.parsing_initial_input import (
-    _normalize_cat_loading_df, parse_input_file, timepoint_map, num_reactions
-)
 from src.regression.rate_calculation import rate_calculation
 from src.parsing.parsing_data import process_manual
 
@@ -27,19 +23,18 @@ def merged_df():
 # Build parametrize list from the rates file at collection time
 _rates_df = pd.read_excel(RATES_FILE, engine="openpyxl")
 
+
 @pytest.mark.parametrize("rxn_num", _rates_df["Reaction_Number"].tolist())
 def test_initial_rate_per_reaction(rxn_num, merged_df, expected_rates):
     expected = expected_rates[rxn_num]
 
-    # Filter merged df to this reaction; pick Product (growth) as analyte
     rxn_df = merged_df[merged_df["reaction"] == rxn_num].copy()
     product_df = rxn_df[rxn_df["reactant"] == "Product"].reset_index(drop=True)
 
-    # Need to change values to match the inputs in the expected rates 
+    # Need to change values to match the inputs in the expected rates
     C0 = float(product_df["peak_area"].iloc[0])
     Ce = float(product_df["peak_area"].iloc[-1])
 
-    # Need to specific k for each reaction
     rate = rate_calculation(
         product_df, "peak_area",
         C0=C0, Ce=Ce, k=0.5,

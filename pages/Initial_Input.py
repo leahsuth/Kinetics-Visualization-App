@@ -17,7 +17,11 @@ from src.page_styling.upload_files.file_uploader_buttons import (
     hplc_data_button,
 )
 from src.parsing.input_page.helpers import parse_excel
-from src.parsing.input_page.plate_setup import apply_plate_mode, finalize_setup, build_well_info
+from src.parsing.input_page.plate_setup import (
+    apply_plate_mode,
+    build_well_info,
+    finalize_setup,
+)
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
 from src.utils.png_utils import _svg_to_png
 

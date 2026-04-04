@@ -1,15 +1,21 @@
 # pages/initial_input.py
 import re
-import io
 import sys
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
+
+from src.page_styling.plate_selector import (  # noqa: E402
+    generate_plate_svg,
+    render_plate_editor_modal,
+)
+from src.page_styling.upload_files.file_uploader_buttons import (
+    experiment_conditions_button,
+    hplc_data_button,
+)
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
-from src.page_styling.plate_selector import render_plate_editor_modal, generate_plate_svg  # noqa: E402
-from src.page_styling.upload_files.file_uploader_buttons import experiment_conditions_button, hplc_data_button
 from src.utils.png_utils import _svg_to_png
 
 st.logo(image='assets/Merck_Logo.png')

@@ -18,7 +18,7 @@ def expected_rates():
 # Load the full merged pipeline output once
 @pytest.fixture(scope="module")
 def merged_df():
-    return process_manual(str(CONDITIONS), str(HPLC_DATA))
+    return process_manual(str(CONDITIONS), str(HPLC_DATA), save_as_csv=False)
 
 # Build parametrize list from the rates file at collection time
 _rates_df = pd.read_excel(RATES_FILE, engine="openpyxl")

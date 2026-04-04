@@ -31,13 +31,18 @@ def input_page_setup():
     )
 
 def setup_header():
+    st.markdown("""
+        <style>
+        .block-container { max-width: 80%; }
+        </style>
+        """, unsafe_allow_html=True)
     st.markdown(
         """
         <div style="
             background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
             color: white;
             padding: 1rem;
-            margin: 1.5rem;
+            margin: 2rem;
             text-align: center;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,122,115,0.2);

@@ -26,7 +26,7 @@ def larger_banner(title, subtitle=None):
         padding: 1rem;
         margin: 0 -1rem 1rem -1rem;
         text-align: center;
-        border-radius: 0 0 12px 12px;
+        border-radius: 12px;
         box-shadow: 0 4px 12px rgba(0,122,115,0.2);
     ">
         <h1 style="margin: 0; font-size: 3.0rem; font-weight: 700; letter-spacing: -0.02em;">{title}</h1>
@@ -45,7 +45,7 @@ def about_banner(title, subtitle=None, full_width=False):
         margin: {margin};
         width: {width};
         text-align: center;
-        border-radius: 0 0 12px 12px;
+        border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0,122,115,0.2);
     ">
         <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{title}</h1>

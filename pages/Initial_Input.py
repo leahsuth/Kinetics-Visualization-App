@@ -8,22 +8,15 @@ from typing import Optional, Dict, List
 import streamlit as st
 import pandas as pd
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
+from src.page_styling.plate_selector import render_plate_editor_modal, generate_plate_svg  # noqa: E402
+from src.page_styling.upload_files.file_uploader_buttons import experiment_conditions_button, hplc_data_button
+from src.utils.png_utils import _svg_to_png
 
 st.logo(image='assets/Merck_Logo.png')
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from src.page_styling.plate_selector import render_plate_editor_modal, generate_plate_svg  # noqa: E402
-
-try:
-    import cairosvg
-    def _svg_to_png(svg_str: str) -> bytes:
-        return cairosvg.svg2png(bytestring=svg_str.encode())
-except Exception:
-    _svg_to_png = None
-
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
@@ -232,45 +225,10 @@ st.markdown(
 col_cond, col_hplc = st.columns(2, gap="large")
 
 with col_cond:
-    with st.container(border=True):
-        st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
-        st.caption("Reactions, wells, and timepoints")
-
-        with st.popover("Template guide", use_container_width=True):
-            st.markdown(
-                "| Column | Required? | Notes |\n"
-                "|---|---|---|\n"
-                "| **Reaction** | Yes | Unique reaction ID |\n"
-                "| **Timepoint** | Yes | One row per timepoint |\n"
-                "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
-                "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
-            )
-
-        uploaded = st.file_uploader(
-            "Upload conditions (.xlsx)",
-            type=["xlsx"],
-            label_visibility="collapsed",
-        )
-        if uploaded is not None:
-            st.success(f"Loaded: {uploaded.name}")
+    uploaded = experiment_conditions_button()
 
 with col_hplc:
-    with st.container(border=True):
-        st.markdown("<div class='upload-card-label'>HPLC Data</div>", unsafe_allow_html=True)
-        st.caption("ChemStation Excel export for the Kinetics page.")
-
-        hplc_file = st.file_uploader(
-            "Upload HPLC data (.xlsx)",
-            type=["xlsx"],
-            key="hplc_uploader",
-            label_visibility="collapsed",
-        )
-        if hplc_file is not None:
-            st.session_state["hplc_file_bytes"] = hplc_file.read()
-            st.session_state["hplc_file_name"] = hplc_file.name
-            st.success(f"Loaded: {hplc_file.name}")
-        elif st.session_state.get("hplc_file_name"):
-            st.info(f"Using: {st.session_state['hplc_file_name']}")
+    hplc_data_button()
 
 
 # ── Step 2: Configure (only shown after conditions file is uploaded) ─────────
@@ -340,25 +298,14 @@ if uploaded is not None:
             )
             st.session_state["excel_plate_well_info"] = well_info_excel
             svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
-            if _svg_to_png:
-                st.download_button(
-                    "Download plate image (.png)",
-                    data=_svg_to_png(svg),
-                    file_name="plate_map.png",
-                    mime="image/png",
-                    use_container_width=True,
-                    key="excel_dl_png",
-                )
-            else:
-                st.download_button(
-                    "Download plate image (.svg)",
-                    data=svg,
-                    file_name="plate_map.svg",
-                    mime="image/svg+xml",
-                    use_container_width=True,
-                    key="excel_dl_svg",
-                )
-
+            st.download_button(
+                "Download plate image (.png)",
+                data=_svg_to_png(svg),
+                file_name="plate_map.png",
+                mime="image/png",
+                use_container_width=True,
+                key="excel_dl_png",
+            )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     st.markdown(
         "<div class='step-row'>"

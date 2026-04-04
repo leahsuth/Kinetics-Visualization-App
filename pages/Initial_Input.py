@@ -151,6 +151,8 @@ if uploaded is not None:
             )
             st.session_state["cat_loading_df"] = annotated_df
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+else:
+    st.stop()
 
 
 # ── Saved setup summary ────────────────────────────────────────────────────

@@ -103,7 +103,6 @@ time_unit = st.selectbox(
 st.session_state["_kinetics_time_unit"] = time_unit
 
 # ----Pre-processing for plotting----------------------------------------
-# INFO: peak_area vs AP is being set here
 df_plot, selected_measurements = plot_process(df_plot,
                                               selected_reactions,
                                               selected_analytes,
@@ -177,8 +176,8 @@ for rxn in selected_reactions:
         })
 
 # plot remaining reactions in a single plot
-remaining_reactions = [r for r in selected_reactions
-                       if r not in reactions_for_plots]
+remaining_reactions = [r for r in selected_reactions if r not in reactions_for_plots]
+
 if remaining_reactions:
     df_remaining = df_plot[df_plot["reaction"].
                            astype(str).isin(remaining_reactions)]

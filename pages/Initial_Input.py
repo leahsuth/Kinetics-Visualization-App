@@ -10,6 +10,7 @@ import pandas as pd
 from src.parsing.parsing_initial_input import parse_input_file
 from src.parsing.process_preprocessed_data import process_preprocessed_data
 
+
 st.logo(image='assets/Merck_Logo.png')
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -414,8 +415,8 @@ if source_choice == "ChemStation" and uploaded is not None:
 
         raw_df = st.session_state.get("uploaded_excel_df")
         if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
-            raw_df_norm = parse_input_file(raw_df)
-            rxn_df_norm = parse_input_file(rxn_df)
+            raw_df_norm = parse_conditions_df(raw_df)
+            rxn_df_norm = parse_conditions_df(rxn_df)
             rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
             annotated_df = raw_df_norm.merge(
                 rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")

@@ -3,7 +3,7 @@ Parse kinetics data from CSV and Excel (ChemStation) files.
 Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 """
 
-from src.parsing.parsing_initial_input import parse_input_file
+from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
 from src.parsing.add_loading_data_info import add_loading_data_info
 from src.parsing.standardize import standardize_data
 from src.parsing.parsing_hplc_files import process_first_line, process_data
@@ -63,7 +63,7 @@ def process_manual(cat_loading_path: str, data_path: str, save_as_csv=True):
     df_standardized : pd.DataFrame
         The standardized HPLC data dataframe.
     """
-    df_cat = parse_input_file(cat_loading_path, save_as_csv)
+    df_cat = parse_conditions_df(cat_loading_path, save_as_csv)
     df = process_data(data_path, save_as_csv)
     df = add_loading_data_info(df, df_cat, save_as_csv)
     df = standardize_data(df, save_as_csv)

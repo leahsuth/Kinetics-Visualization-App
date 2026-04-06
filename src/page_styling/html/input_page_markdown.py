@@ -67,20 +67,19 @@ def data_source_help_text():
     with st.expander("Which data source type should I choose?", expanded=False):
         st.markdown(
             """
-    **ChemStation** — Use this when you are working from **Agilent ChemStation exports**
-    and want the app to tie experiments to a **conditions** spreadsheet.
+**ChemStation** — Use this when you are working from **Agilent ChemStation exports**
+and want the app to tie experiments to a **conditions** spreadsheet.
 
-    - You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
-    - You map reactions, wells, and timepoints, and can use the **plate editor**.
+- You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
+- You map reactions, wells, and timepoints, and can use the **plate editor**.
 
-    **Preprocessed** — Use this when you already have a **single table** of kinetics that is
-    **ready to plot** (time column + one column per analyte).
+**Preprocessed** — Use this when you already have a **single table** of kinetics that is
+**ready to plot** (time column + one column per analyte).
 
-    - You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
-    - Reactions are inferred from the file (e.g. when time resets between runs).
-    - Open **How preprocessed files should look** below after selecting Preprocessed for an example layout.
-
-            """
+- You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
+- Reactions are inferred from the file (e.g. when time resets between runs).
+- Open **How preprocessed files should look** below for an example table layout.
+"""
         )
 
 def preprocessed_file_example():

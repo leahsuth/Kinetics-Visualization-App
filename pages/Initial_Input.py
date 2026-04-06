@@ -1,6 +1,7 @@
 # pages/initial_input.py
 import sys
 from pathlib import Path
+from typing import List, Optional, Dict
 
 import pandas as pd
 import streamlit as st
@@ -22,6 +23,8 @@ from src.parsing.input_page.plate_setup import (
 )
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
 from src.utils.png_utils import _svg_to_png
+from src.parsing.process_preprocessed_data import process_preprocessed_data
+
 
 st.logo(image='assets/Merck_Logo.png')
 
@@ -38,24 +41,221 @@ input_page_markdown.setup_header()
 TEMPLATE_COLUMNS = ["Reaction", "Reaction_Well", "Timepoint"]
 TEMPLATE_OPTIONAL = ["Condition1", "Condition2"]
 
+
 st.session_state.setdefault("experiment_setup", {})
 st.session_state.setdefault("show_plate_modal", True)
+
+source_choice = st.selectbox(
+    "Select data source type",
+    ("ChemStation", "Preprocessed"),
+    index=None,
+    help="Choose ChemStation for data directly from ChemStation, or Preprocessed for ready-to-plot data.",
+)
+
+with st.expander("Which data source type should I choose?", expanded=False):
+    st.markdown(
+        """
+**ChemStation** — Use this when you are working from **Agilent ChemStation exports**
+and want the app to tie experiments to a **conditions** spreadsheet.
+
+- You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
+- You map reactions, wells, and timepoints, and can use the **plate editor**.
+
+**Preprocessed** — Use this when you already have a **single table** of kinetics that is
+**ready to plot** (time column + one column per analyte).
+
+- You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
+- Reactions are inferred from the file (e.g. when time resets between runs).
+- Open **How preprocessed files should look** below after selecting Preprocessed for an example layout.
+
+        """
+    )
+
+# ── helpers ────────────────────────────────────────────────────────────────
+
+
+def clean_list(vals: List[str]) -> List[str]:
+    return [str(v).strip() for v in vals if str(v).strip() and str(v).strip().lower() != "nan"]
+
+
+def unique_preserve_order(items: List[str]) -> List[str]:
+    seen: set = set()
+    out = []
+    for x in items:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+def normalize_headers(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df.columns = [str(c).strip() for c in df.columns]
+    return df
+
+
+def find_col_contains(columns, *needles: str) -> Optional[str]:
+    cols = [str(c).strip() for c in columns]
+    low = [c.lower() for c in cols]
+    needles = [n.strip().lower() for n in needles if n and n.strip()]
+    for n in needles:
+        for i, c in enumerate(low):
+            if c == n:
+                return cols[i]
+    for i, c in enumerate(low):
+        for n in needles:
+            if n in c:
+                return cols[i]
+    return None
+
+
+def normalize_well(well: str) -> Optional[str]:
+    if well is None:
+        return None
+    w = str(well).strip().upper()
+    if not w or w.lower() == "nan":
+        return None
+    m = re.match(r"^([A-H])\s*0*([1-9]|1[0-2])$", w)
+    if not m:
+        return None
+    return f"{m.group(1)}{int(m.group(2))}"
+
+
+def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
+    df = normalize_headers(df)
+    reaction_col = find_col_contains(df.columns, "reaction", "rxn")
+    time_col = find_col_contains(df.columns, "timepoint", "time point", "timepoints", "tp")
+    well_col = find_col_contains(df.columns, "reaction_well", "reaction well", "plate_well", "plate well", "well")
+
+    if reaction_col is None:
+        raise ValueError('Missing required column containing "reaction".')
+    if time_col is None:
+        raise ValueError('Missing required column containing "timepoint".')
+
+    timepoints = unique_preserve_order(clean_list(df[time_col].tolist()))
+    if not timepoints:
+        raise ValueError("No usable timepoints found.")
+
+    excluded = {c for c in [reaction_col, time_col, well_col] if c}
+    cond_cols = [
+        c for c in df.columns
+        if c not in excluded
+        and df[c].astype(str).str.strip().replace("nan", "").str.len().gt(0).any()
+    ]
+    rxn_series = df[reaction_col].astype(str).str.strip()
+    df_rxn = df[rxn_series.astype(bool) & (rxn_series.str.lower() != "nan")].copy()
+    rxn_ids = unique_preserve_order(clean_list(df_rxn[reaction_col].tolist()))
+    rxn_meta = df_rxn.drop_duplicates(subset=[reaction_col], keep="first").reset_index(drop=True)
+
+    rows = []
+    for i, rxn in enumerate(rxn_ids):
+        r: dict = {"Reaction": rxn, "Reaction_Well": "", "Notes": "None"}
+        if well_col:
+            r["Reaction_Well"] = str(rxn_meta.loc[i, well_col]).strip()
+        for c in cond_cols:
+            r[c] = str(rxn_meta.loc[i, c]).strip()
+        # Notes always starts as "None" when empty
+        if not str(r.get("Notes", "")).strip():
+            r["Notes"] = "None"
+        rows.append(r)
+
+    return rows, timepoints, cond_cols
+
+
+def build_well_info(reaction_rows: List[dict], cond_cols: List[str]) -> Dict[str, dict]:
+    out: Dict[str, dict] = {}
+    for r in reaction_rows:
+        well = str(r.get("Reaction_Well", "")).strip()
+        if not well:
+            continue
+        d = dict(r)
+        for c in cond_cols:
+            d[c] = str(d.get(c, "") or "").strip()
+        out[well] = d
+    return out
+
+
+def apply_plate_mode(reaction_rows: List[dict]) -> List[dict]:
+    rows = [dict(r) for r in reaction_rows]
+    for r in rows:
+        r["Reaction_Well"] = normalize_well(r.get("Reaction_Well", "")) or str(r.get("Reaction_Well", "")).strip()
+    return rows
+
+
+def finalize_setup(
+    source: str, reaction_rows: List[dict], timepoints: List[str],
+    cond_cols: List[str], well_info: Dict[str, dict], color_by: str = "Reaction"
+) -> dict:
+    reactions = []
+    for r in reaction_rows:
+        rxn = str(r.get("Reaction", "")).strip()
+        well = str(r.get("Reaction_Well", "")).strip()
+        cond_bits = [f"{c}:{str(r.get(c,'') or '').strip()}" for c in cond_cols if str(r.get(c, "") or "").strip()]
+        suffix = " | " + "  ".join(cond_bits) if cond_bits else ""
+        reactions.append(f"{rxn} | {well}{suffix}")
+    return {
+        "source": source,
+        "timepoints": timepoints,
+        "condition_columns": cond_cols,
+        "reaction_rows": reaction_rows,
+        "reactions": reactions,
+        "well_info": well_info,
+        "color_by": color_by,
+    }
+
+
 # ── Step 1: Upload files ────────────────────────────────────────────────────
+if source_choice == "ChemStation":
+    input_page_markdown.step_label(1, "Upload Files")
 
-input_page_markdown.step_label(1, "Upload Files")
+    uploaded = None
+    col_cond, col_hplc = st.columns(2, gap="large")
 
-col_cond, col_hplc = st.columns(2, gap="large")
+    with col_cond:
+        with st.container(border=True):
+            st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
+            st.caption("Reactions, wells, and timepoints")
 
-with col_cond:
-    uploaded = experiment_conditions_button()
+            with st.popover("Template guide", use_container_width=True):
+                st.markdown(
+                    "| Column | Required? | Notes |\n"
+                    "|---|---|---|\n"
+                    "| **Reaction** | Yes | Unique reaction ID |\n"
+                    "| **Timepoint** | Yes | One row per timepoint |\n"
+                    "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
+                    "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
+                )
 
-with col_hplc:
-    hplc_data_button()
+            uploaded = st.file_uploader(
+                "Upload conditions (.xlsx)",
+                type=["xlsx"],
+                label_visibility="collapsed",
+            )
+            if uploaded is not None:
+                st.success(f"Loaded: {uploaded.name}")
+
+    with col_hplc:
+        with st.container(border=True):
+            st.markdown("<div class='upload-card-label'>HPLC Data</div>", unsafe_allow_html=True)
+            st.caption("ChemStation Excel export for the Kinetics page.")
+
+            hplc_file = st.file_uploader(
+                "Upload HPLC data (.xlsx)",
+                type=["xlsx"],
+                key="hplc_uploader",
+                label_visibility="collapsed",
+            )
+            if hplc_file is not None:
+                st.session_state["hplc_file_bytes"] = hplc_file.read()
+                st.session_state["hplc_file_name"] = hplc_file.name
+                st.success(f"Loaded: {hplc_file.name}")
+            elif st.session_state.get("hplc_file_name"):
+                st.info(f"Using: {st.session_state['hplc_file_name']}")
 
 
 # ── Step 2: Configure (only shown after conditions file is uploaded) ─────────
 
-if uploaded is not None:
+if source_choice == "ChemStation" and uploaded is not None:
     try:
         df = pd.read_excel(uploaded)
         st.session_state["uploaded_excel_df"] = df
@@ -128,6 +328,7 @@ if uploaded is not None:
     save_clicked = st.button("Save setup", type="primary", use_container_width=True, key="excel_save")
 
     if save_clicked:
+        st.session_state["data_source_type"] = source_choice
         well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
         updated_rows = [well_info.get(r.get("Reaction_Well", ""), dict(r)) for r in reaction_rows]
         for r in updated_rows:
@@ -151,23 +352,139 @@ if uploaded is not None:
             )
             st.session_state["cat_loading_df"] = annotated_df
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
-else:
-    st.stop()
+
+if source_choice == "Preprocessed":
+    with st.expander("How preprocessed files should look (example table)", expanded=False):
+        st.markdown(
+            """
+This table should only contain ONE measurement type.Use a **wide** table: one row per timepoint per sample, **one column for time**, and **one column per analyte**
+(with numeric measurements). The **first column** can be any sample or run label; it is stored as **Sample Name**.
+
+**Column names**
+
+| Column | Required? | Notes |
+|--------|-----------|-------|
+| Sample Identifier | Recommended | Can be (identifier, well ID, etc.). |
+| `time`, `Time`, or `timepoint` | Yes | Any unit is acceptable, but should be consistent throughout the file. |
+| All other columns | At least one | Treated as **analytes** (e.g. product, impurity, internal standard). The value in this column should be the measurement of the analyte at that point of the run. |
+
+**Reaction IDs** are assigned automatically: rows stay in the same reaction while time is non-decreasing; when **time drops** compared to the previous row, a **new reaction** starts (reaction 2, 3, …).
+
+**Example** (CSV / Excel — same layout):
+
+| Sample Identifier | time | ANALYTE_1 | ANALYTE_2 | ANALYTE_3 |
+|-------------|------|---------|-----|----------|
+| NB-001-01 | 0 | 0.10 | 0.90 | 0.00 |
+| NB-001-01 | 2 | 0.35 | 0.63 | 0.02 |
+| NB-001-01 | 4 | 0.58 | 0.40 | 0.02 |
+| NB-002-01 | 0 | 0.12 | 0.88 | 0.00 |
+| NB-002-01 | 2 | 0.40 | 0.58 | 0.02 |
+
+Here the first three rows are **Reaction 1**. The next two rows start **Reaction 2**.
+            """
+        )
+
+    st.markdown(
+        "<div class='step-row'>"
+        "<span class='step-badge'>1</span>"
+        "<span class='step-title'>Upload Files</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    col_pre, col_meas = st.columns(2, gap="large")
+
+    with col_pre:
+        with st.container(border=True):
+            st.markdown("<div class='upload-card-label'>Preprocessed Data</div>", unsafe_allow_html=True)
+            st.caption("CSV or Excel with time and analyte columns (see Kinetics page).")
+            pre_file = st.file_uploader(
+                "Upload preprocessed data (.csv or .xlsx)",
+                type=["csv", "xlsx"],
+                key="preprocessed_uploader",
+                label_visibility="collapsed",
+            )
+            if pre_file is not None:
+                st.session_state["preprocessed_file_bytes"] = pre_file.read()
+                st.session_state["preprocessed_file_name"] = pre_file.name
+                st.success(f"Loaded: {pre_file.name}")
+            elif st.session_state.get("preprocessed_file_name"):
+                st.info(f"Using: {st.session_state['preprocessed_file_name']}")
+
+    with col_meas:
+        with st.container(border=True):
+            st.markdown("<div class='upload-card-label'>Measurement label</div>", unsafe_allow_html=True)
+            st.caption("Used for plot axes (e.g. Concentration, Area %).")
+            measurement_type = st.text_input(
+                "Measurement type",
+                "Concentration",
+                label_visibility="collapsed",
+                key="preprocessed_measurement_type",
+            )
+            st.session_state["measurement_type"] = measurement_type
+
+    preprocessed_ready = bool(st.session_state.get("preprocessed_file_bytes"))
+    if not preprocessed_ready:
+        st.info(
+            "Upload a preprocessed CSV or XLSX file above, then save setup to continue.",
+            icon="👇",
+        )
+
+    st.markdown(
+        "<div class='step-row'>"
+        "<span class='step-badge'>2</span>"
+        "<span class='step-title'>Save & Proceed</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    save_preprocessed = st.button(
+        "Save setup",
+        type="primary",
+        use_container_width=True,
+        key="preprocessed_save",
+        disabled=not preprocessed_ready,
+    )
+
+    if save_preprocessed:
+        preprocessed_df = None
+        file_bytes = st.session_state.get("preprocessed_file_bytes")
+        file_name = st.session_state.get("preprocessed_file_name", "preprocessed_data.csv")
+        preprocessed_df = process_preprocessed_data(file_bytes)
+        st.session_state["PREPROCESSED_DATA_DF"] = preprocessed_df
+
+        st.session_state["experiment_setup"] = {
+            "source": "preprocessed",
+            "timepoints": unique_preserve_order(clean_list(preprocessed_df["time"].unique())),
+            "condition_columns": [],
+            "reaction_rows": [2],
+            "reactions": [1],
+            "well_info": {},
+            "color_by": "Reaction",
+        }
+        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
 
 # ── Saved setup summary ────────────────────────────────────────────────────
 
 setup = st.session_state.get("experiment_setup") or {}
 
+
 if setup:
     st.divider()
     with st.container(border=True):
         st.markdown("**Saved Setup**")
-        a, b, c = st.columns(3)
-        a.metric("Reactions", len(setup.get("reaction_rows", [])))
-        b.metric("Timepoints", len(setup.get("timepoints", [])))
-        hplc_name = st.session_state.get("hplc_file_name", "—")
-        c.metric("HPLC File", hplc_name if hplc_name else "—")
+        if setup.get("source") == "preprocessed":
+            a, c = st.columns(2)
+            a.metric("Reactions", len(st.session_state["PREPROCESSED_DATA_DF"]["Reaction"].unique()))
+            c.metric("Preprocessed File", st.session_state.get("preprocessed_file_name", "—"))
+
+        else:
+            a, b, c = st.columns(3)
+            a.metric("Reactions", len(setup.get("reaction_rows", [])))
+            b.metric("Timepoints", len(setup.get("timepoints", [])))
+            hplc_name = st.session_state.get("hplc_file_name", "—")
+            c.metric("HPLC File", hplc_name if hplc_name else "—")
 
         if st.button(
             "📈  Visualize data and initial rates →",

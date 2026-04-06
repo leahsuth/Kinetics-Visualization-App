@@ -2,6 +2,7 @@ import streamlit as st
 from pathlib import Path
 import io
 import pandas as pd
+from src.page_styling.welcome_page import larger_banner, about_banner, about_main_body, excel_template_bytes
 
 st.set_page_config(
     page_title="Kinetics Visualization",
@@ -17,56 +18,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.logo(image='assets/Merck_Logo.png')
-
-def larger_banner(title, subtitle=None):
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-        color: white;
-        padding: 1rem;
-        margin: 0 -1rem 1rem -1rem;
-        text-align: center;
-        border-radius: 0 0 12px 12px;
-        box-shadow: 0 4px 12px rgba(0,122,115,0.2);
-    ">
-        <h1 style="margin: 0; font-size: 3.0rem; font-weight: 700; letter-spacing: -0.02em;">{title}</h1>
-        {f'<p style="margin: 0.5rem 0 0; font-size: 2.0rem; opacity: 0.9;">{subtitle}</p>' if subtitle else ''}
-    </div>
-    """, unsafe_allow_html=True)
-
-def about_banner(title, subtitle=None, full_width=False):
-    width = "100%" if full_width else "85%"
-    margin = "0 0 1rem 0" if full_width else "0 auto 1rem"
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-        color: white;
-        padding: 0.5rem 0.9rem;
-        margin: {margin};
-        width: {width};
-        text-align: center;
-        border-radius: 0 0 12px 12px;
-        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
-    ">
-        <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{title}</h1>
-    </div>
-    """, unsafe_allow_html=True)
-
-def blurb(title, subtitle=None):
-    st.markdown(f"""
-    <div style="
-        background: white;
-        color: black;
-        padding: 0.5rem 0.9rem;
-        margin: 0 auto 1rem;
-        width: 85%;
-        text-align: left;
-        border-radius: 0 0 6px 6px;
-        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
-    ">
-        <div style="margin: 0; font-size: 1.1rem;">{title}</div>
-    </div>
-    """, unsafe_allow_html=True)
 
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize plates, and analyze peak areas")
 
@@ -108,21 +59,6 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
-#download template
-def excel_template_bytes() -> bytes:
-    df = pd.DataFrame(
-        [
-            {"Reaction": "1", "Reaction_Well": "A1", "Timepoint": "0",  "Condition1": "LigA", "Condition2": "Cat1"},
-            {"Reaction": "2", "Reaction_Well": "A2", "Timepoint": "5",  "Condition1": "",     "Condition2": "Cat2"},
-            {"Reaction": "",  "Reaction_Well": "",   "Timepoint": "10", "Condition1": "",     "Condition2": ""},
-        ]
-    )
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Experiment")
-    return buf.getvalue()
-
-
 _, col_dl, col_guide, _ = st.columns([1, 1, 1, 1])
 with col_dl:
     downloaded = st.download_button(
@@ -147,7 +83,7 @@ with col_guide:
 
 about_banner("About")
 
-blurb("""This app is designed to streamline and automate the process of visualizing and analyzing kinetic data from HPLC experiments. Currently, it supports the following features:<br><br>
+about_main_body("""This app is designed to streamline and automate the process of visualizing and analyzing kinetic data from HPLC experiments. Currently, it supports the following features:<br><br>
        <ul style="text-align: left; display: inline-block; margin: 0.5rem 0 0;">
          <li>Generating plate layouts from reaction conditions</li>
          <li>Graphing Peak Area over Time</li>

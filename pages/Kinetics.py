@@ -15,6 +15,24 @@ from src.page_styling.report_generator import generate_report_pdf
 st.logo(image='assets/Merck_Logo.png')
 st.write("# Kinetics Plotter")
 
+# Make all st.button(type="primary") red (does not affect st.download_button)
+st.markdown(
+    """
+    <style>
+    div[data-testid="stButton"] button[kind="primary"] {
+        background-color: #c62828 !important;
+        border-color: #c62828 !important;
+        color: white !important;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover {
+        background-color: #b71c1c !important;
+        border-color: #b71c1c !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 experiment_setup_meta = st.session_state.get("experiment_setup", {}) or {}
 source_type = experiment_setup_meta.get("source", "excel")

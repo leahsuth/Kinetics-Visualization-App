@@ -333,8 +333,12 @@ if not is_preprocessed:
 
     if "kinetics_plot_history" not in st.session_state:
         st.session_state["kinetics_plot_history"] = []
-    if "kinetics_plotted_keys" not in st.session_state:
-        st.session_state["kinetics_plotted_keys"] = set()
+    if "kinetics_excluded_keys" not in st.session_state:
+        st.session_state["kinetics_excluded_keys"] = set()
+    if "kinetics_clear_counter" not in st.session_state:
+        st.session_state["kinetics_clear_counter"] = 0
+    if "kinetics_remove_idx" not in st.session_state:
+        st.session_state["kinetics_remove_idx"] = None
 
     # Controls: reaction, analyte, profile, plus summary
     st.write("### Controls")
@@ -430,7 +434,13 @@ if not is_preprocessed:
                 )
                 # Add to history when reaction, analyte, or profile has changed
                 plot_key = (rate_reaction, choose_analyte, profile_type)
-                if plot_key not in st.session_state["kinetics_plotted_keys"]:
+                already_exists = any(
+                    h["reaction"] == rate_reaction and h["analyte"] == choose_analyte
+                    and h["profile_type"] == profile_type
+                    for h in st.session_state["kinetics_plot_history"]
+                )
+                is_excluded = plot_key in st.session_state["kinetics_excluded_keys"]
+                if not already_exists and not is_excluded:
                     rate_table = pd.DataFrame([
                         {
                             "Reaction": rate_reaction,
@@ -450,29 +460,75 @@ if not is_preprocessed:
                         "rate_table": rate_table,
                         "selected_measurements": selected_measurements,
                     })
-                    st.session_state["kinetics_plotted_keys"].add(plot_key)
                     new_plot_added = True
         else:
             st.warning(f"Not enough data points for {choose_analyte}.")
     else:
         st.info("Select an analyte above to generate a plot.")
                                                      
+    # Process any pending deletion before rendering widgets
+    if st.session_state["kinetics_remove_idx"] is not None:
+        idx_to_remove = st.session_state["kinetics_remove_idx"]
+        st.session_state["kinetics_remove_idx"] = None
+        history = st.session_state["kinetics_plot_history"]
+        if 0 <= idx_to_remove < len(history):
+            removed = history.pop(idx_to_remove)
+            st.session_state["kinetics_excluded_keys"].add(
+                (removed["reaction"], removed["analyte"], removed["profile_type"])
+            )
+        st.rerun()
+
     # Displays plot and corresponding rate table side by side
     if st.session_state["kinetics_plot_history"]:
         if new_plot_added:
             st.success("New plot added. Change reaction or analyte to add another.")
-        for i, item in enumerate(reversed(st.session_state["kinetics_plot_history"])):
-            st.write(f"---")
-            st.caption(f"**{item['reaction']}** — {item['analyte']} ({item['profile_type']})")
-            col_plot, col_table = st.columns([3, 1])
-            with col_plot:
-                st.plotly_chart(item["fig"], use_container_width=True)
-            with col_table:
-                st.dataframe(item["rate_table"], use_container_width=True, hide_index=True)
-        if st.button("Clear all plots", key="clear_plots"):
-            st.session_state["kinetics_plot_history"] = []
-            st.session_state["kinetics_plotted_keys"] = set()
-            st.rerun()
+        st.divider()
+        st.write("### Generated Fit Plots")
+
+        hdr_col, btn_col = st.columns([3, 1])
+        with hdr_col:
+            st.caption("Clear plots to reset plotting settings and start fresh.")
+        with btn_col:
+            if st.button("Clear all plots", key="clear_plots", type="primary",
+                         use_container_width=True):
+                st.session_state["kinetics_plot_history"] = []
+                st.session_state["kinetics_excluded_keys"] = set()
+                st.session_state["kinetics_clear_counter"] += 1
+                st.rerun()
+
+        from collections import defaultdict
+        analyte_groups: dict = defaultdict(list)
+        for idx, item in enumerate(st.session_state["kinetics_plot_history"]):
+            analyte_groups[item["analyte"]].append((idx, item))
+
+        for analyte, indexed_items in analyte_groups.items():
+            st.write(f"#### {analyte}")
+            for i in range(0, len(indexed_items), 2):
+                row = indexed_items[i : i + 2]
+                cols = st.columns(len(row))
+                for col, (idx, item) in zip(cols, row):
+                    with col:
+                        hdr_left, hdr_right = st.columns([5, 1])
+                        with hdr_left:
+                            st.caption(f"Reaction {item['reaction']} ({item['profile_type']})")
+                        with hdr_right:
+                            if st.button("✕", key=f"del_plot_{idx}", help="Remove this plot"):
+                                st.session_state["kinetics_remove_idx"] = idx
+                                st.rerun()
+                        st.plotly_chart(item["fig"], use_container_width=True)
+                        rt = item["rate_table"].iloc[0]
+                        st.markdown(
+                            f"<div style='border: 2.5px solid #555; border-radius: 6px; "
+                            f"padding: 6px 10px; display: inline-block; font-size: 0.82em; "
+                            f"line-height: 1.8;'>"
+                            f"<b>Rate:</b> {rt['Rate']:.4f}<br>"
+                            f"<b>C\u2080:</b> {rt['C0']:.4f} &nbsp; "
+                            f"<b>C\u2091:</b> {rt['Ce']:.4f} &nbsp; "
+                            f"<b>k:</b> {rt['k']:.4f}"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+            st.divider()
 
     st.divider()
     st.subheader("Export Report")

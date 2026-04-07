@@ -5,7 +5,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from src.parsing.parsing_data import process_streamlit
 from src.parsing.process_preprocessed_data import process_preprocessed_data
-from src.page_styling.rate_information import rate_information, profile_picker
+from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.parsing.plotting_process import plot_process
@@ -134,7 +134,7 @@ if is_preprocessed:
     multi_plot_choice = st.radio(
         "Visualize reaction data in multiple plots?",
         ["No", "Yes"],
-        index=0,
+        index=1,
         horizontal=True,
     )
 
@@ -143,7 +143,7 @@ if is_preprocessed:
         reactions_for_plots = st.multiselect(
             "Reactions to display as separate plots.",
             options=selected_reactions,
-            default=None,
+            default=selected_reactions,
         )
 
     if reactions_for_plots:
@@ -246,7 +246,7 @@ else:
     multi_plot_choice = st.radio(
         "Visualize reaction data in multiple plots?",
         ["No", "Yes"],
-        index=0,
+        index=1,
         horizontal=True,
     )
 
@@ -255,7 +255,7 @@ else:
         reactions_for_plots = st.multiselect(
             "Reactions to display as separate plots.",
             options=selected_reactions,
-            default=None,
+            default=selected_reactions,
         )
 
     if reactions_for_plots:
@@ -291,45 +291,28 @@ else:
     first_line = st.session_state["first_line"]
     st.caption(first_line)
 
-rate_reaction = "-"
-rate = None
-rate_params: dict = {}
+    # Collect one entry per selected reaction for the PDF report
+    reaction_plot_data = []
+    for rxn in selected_reactions:
+        df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
+        if not df_rxn.empty:
+            reaction_plot_data.append({
+                "reaction": rxn,
+                "df": df_rxn,
+                "select_meas": selected_measurements,
+                "color_by": color_by,
+            })
+
+rate_summaries = []
 
 # ----Initial Rate----------------------------------------
-# ChemStation workflow stores setup as source "excel", not session "ChemStation".
 if not is_preprocessed:
     st.divider()
     st.write("# Initial Rate Calculations")
 
-    rate_reaction = st.selectbox("Reaction for rate calculation",
-                                selected_reactions,
-                                index=0)
-    df_rate = df_plot[df_plot["reaction"].astype(str) == str(rate_reaction)].copy()
-    if df_rate.empty:
-        st.warning("No data available for rate calculation with current filters.")
-        st.stop()
-
-    df_rate = df_rate.pivot_table(
-        index="time",
-        columns="reactant",
-        values=selected_measurements,
-        aggfunc="mean",
-    ).reset_index()
-    df_rate = df_rate.sort_values(by="time")
-
-    rate_analytes = [a for a in selected_analytes if a in df_rate.columns]
-    if not rate_analytes:
-        st.warning("Selected analytes are not available for rate calculation.")
-        st.stop()
-
-    k_constant = st.number_input("Rate constant (k)", value = 0.1, min_value = 1e-10, format = "%0.2f", key = "k_rate")
-    auto_pick = st.radio("Should the rate parameters be automatically selected?", ['auto', 'manual'])
-
-    rate, rate_params = rate_information(df_rate, rate_analytes, auto_pick == 'auto', k_input = k_constant)
-
-    #Plot history
-    st.divider()
-    st.write("## Rate Plots")
+    k_constant = st.number_input(
+        "Rate constant (k)", value=0.1, min_value=1e-10, format="%0.2f", key="k_rate"
+    )
 
     if "kinetics_plot_history" not in st.session_state:
         st.session_state["kinetics_plot_history"] = []
@@ -337,136 +320,183 @@ if not is_preprocessed:
         st.session_state["kinetics_excluded_keys"] = set()
     if "kinetics_clear_counter" not in st.session_state:
         st.session_state["kinetics_clear_counter"] = 0
-    if "kinetics_remove_idx" not in st.session_state:
-        st.session_state["kinetics_remove_idx"] = None
 
-    # Controls: reaction, analyte, profile, plus summary
-    st.write("### Controls")
-
-
-    def build_rate_summary(df_rate: pd.DataFrame, analytes: list, k: float) \
-                        -> pd.DataFrame:
+    def build_rate_summary(df_pivot: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
         """Calculate rate for each analyte and return summary DataFrame."""
         rows = []
         for analyte in analytes:
-            if analyte not in df_rate.columns:
+            if analyte not in df_pivot.columns:
                 rows.append({"Analyte": analyte, "Rate": None})
                 continue
-            C0 = df_rate[analyte].iloc[0]
-            Ce = df_rate[analyte].iloc[-1]
+            C0 = df_pivot[analyte].iloc[0]
+            Ce = df_pivot[analyte].iloc[-1]
             profile_type = profile_picker(C0, Ce)
             try:
-                r = rate_calculation(df_rate, analyte, C0, Ce, k, profile_type)
+                r = rate_calculation(df_pivot, analyte, C0, Ce, k, profile_type)
             except Exception:
                 r = None
             rows.append({"Analyte": analyte, "Rate": r})
         return pd.DataFrame(rows)
 
-
-    summary_df = build_rate_summary(df_rate, rate_analytes, k_constant)
-    st.dataframe(summary_df, use_container_width=True)
-
-    # Exponential curve fit + auto-add when new reaction or analyte is selected
-    choose_analyte = rate_params.get("analyte")
-    new_plot_added = False
-
-    if choose_analyte and choose_analyte in df_rate.columns:
-        single_df = df_rate[["time", choose_analyte]].copy()
-        single_df["time"] = pd.to_numeric(single_df["time"], errors="coerce")
-        single_df[choose_analyte] = pd.to_numeric(single_df[choose_analyte],
-                                                errors="coerce")
-        single_df = single_df.dropna(subset=["time", choose_analyte]).\
-            sort_values("time").reset_index(drop=True)
-
-        if len(single_df) >= 3:
-            C0_init = float(single_df[choose_analyte].iloc[0])
-            Ce_init = float(single_df[choose_analyte].iloc[-1])
-            default_profile = profile_picker(C0_init, Ce_init)
-            profile_type = st.radio(
-                "Profile type for fit",
-                ["growth", "decay"],
-                index=0 if default_profile == "growth" else 1,
-                key="curve_profile",
-                help="Growth: C = Ce + (C0-Ce)*exp(-kt). Decay: C = C0*exp(-kt)+Ce.",
+    # Compute pivot tables once per reaction and reuse for both summary and fit plots
+    df_rate_by_rxn: dict = {}
+    for rxn in selected_reactions:
+        df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
+        if not df_rxn.empty:
+            df_rate_by_rxn[rxn] = (
+                df_rxn.pivot_table(
+                    index="time", columns="reactant", values="peak_ap", aggfunc="mean"
+                )
+                .reset_index()
+                .sort_values("time")
             )
-            result = fit_kinetics_and_return_params(
-                single_df, choose_analyte, C0_init,
-                Ce_init, k_constant, profile_type
-            )
-            if result is not None:
-                C0, Ce, k = result[0], result[1], result[2]
-                par = {"C0": C0, "Ce": Ce, "k": k}
-                t_min = float(single_df["time"].min())
-                t_max = float(single_df["time"].max())
-                t_fine = np.linspace(t_min, t_max, 100)
-                y_fit = exp_func(C0, Ce, k, t_fine, profile_type)
 
-                t_rate = 0
-                if profile_type == "growth":
-                    rate_val = (par["Ce"] - par["C0"]) * par["k"] * np.exp(-t_rate * par["k"])
+    # ---- Rate Summary ----
+    st.write("### Rate Summary")
+    for rxn in selected_reactions:
+        df_pivot = df_rate_by_rxn.get(rxn)
+        if df_pivot is None:
+            continue
+        rxn_analytes = [a for a in selected_analytes if a in df_pivot.columns]
+        if not rxn_analytes:
+            continue
+        summary = build_rate_summary(df_pivot, rxn_analytes, k_constant)
+        st.write(f"**Reaction {rxn}**")
+        st.dataframe(summary, use_container_width=True)
+        rate_summaries.append({"reaction": rxn, "summary_df": summary})
+
+    # ---- Fit Plots ----
+    st.divider()
+    st.write("## Rate Plots")
+
+    generate_plots = st.radio(
+        "Generate exponential fit plots?", ["No", "Yes"], horizontal=True
+    )
+
+    if generate_plots == "Yes":
+        manual_profile = st.checkbox(
+            "Manually select growth/decay profile per analyte",
+            value=False,
+            key="manual_profile_select",
+        )
+        chosen_rxn_analytes: set = set()
+
+        for rxn in selected_reactions:
+            df_pivot = df_rate_by_rxn.get(rxn)
+            if df_pivot is None:
+                continue
+            rxn_analytes = [a for a in selected_analytes if a in df_pivot.columns]
+            if not rxn_analytes:
+                continue
+            st.write(f"**Reaction {rxn}**")
+            _cc = st.session_state["kinetics_clear_counter"]
+            chosen_analytes = st.multiselect(
+                f"Analytes to fit — Reaction {rxn}",
+                rxn_analytes,
+                key=f"fit_analytes_{rxn}_{_cc}",
+            )
+            chosen_rxn_analytes.update((rxn, a) for a in chosen_analytes)
+            for analyte in chosen_analytes:
+                single_df = (
+                    df_pivot[["time", analyte]]
+                    .copy()
+                    .dropna(subset=["time", analyte])
+                    .sort_values("time")
+                    .reset_index(drop=True)
+                )
+                if len(single_df) < 3:
+                    st.warning(f"Not enough data points for {analyte}.")
+                    continue
+                C0_init = float(single_df[analyte].iloc[0])
+                Ce_init = float(single_df[analyte].iloc[-1])
+                default_profile = profile_picker(C0_init, Ce_init)
+                if manual_profile:
+                    profile_type = st.radio(
+                        f"Profile — Reaction {rxn} / {analyte}",
+                        ["growth", "decay"],
+                        index=0 if default_profile == "growth" else 1,
+                        key=f"profile_{rxn}_{analyte}_{_cc}",
+                        horizontal=True,
+                        help="Growth: C = Ce + (C0-Ce)*exp(-kt). Decay: C = C0*exp(-kt)+Ce.",
+                    )
                 else:
-                    rate_val = par["C0"] * par["k"] * np.exp(-t_rate * par["k"])
+                    profile_type = default_profile
+                result = fit_kinetics_and_return_params(
+                    single_df, analyte, C0_init, Ce_init, k_constant, profile_type
+                )
+                if result is not None:
+                    C0, Ce, k_fit = result[0], result[1], result[2]
+                    t_fine = np.linspace(
+                        float(single_df["time"].min()),
+                        float(single_df["time"].max()),
+                        100,
+                    )
+                    y_fit = exp_func(C0, Ce, k_fit, t_fine, profile_type)
+                    if profile_type == "growth":
+                        rate_val = (Ce - C0) * k_fit
+                    else:
+                        rate_val = C0 * k_fit
 
-                fig = go.Figure()
-                fig.add_trace(
-                    go.Scatter(
-                        x=single_df["time"],
-                        y=single_df[choose_analyte],
-                        mode="markers",
-                        name="data",
+                    plot_key = (rxn, analyte, profile_type)
+                    already_exists = any(
+                        h["reaction"] == rxn and h["analyte"] == analyte
+                        and h["profile_type"] == profile_type
+                        for h in st.session_state["kinetics_plot_history"]
                     )
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=t_fine,
-                        y=y_fit,
-                        mode="lines",
-                        name="fitted curve",
-                        line=dict(color="#E53935", width=2),
-                    )
-                )
-                fig.update_layout(
-                    title=f"{choose_analyte} with exponential fit",
-                    xaxis_title=f"Time ({time_unit})",
-                    yaxis_title=selected_measurements,
-                    width=400,
-                    height=250,
-                )
-                # Add to history when reaction, analyte, or profile has changed
-                plot_key = (rate_reaction, choose_analyte, profile_type)
-                already_exists = any(
-                    h["reaction"] == rate_reaction and h["analyte"] == choose_analyte
-                    and h["profile_type"] == profile_type
-                    for h in st.session_state["kinetics_plot_history"]
-                )
-                is_excluded = plot_key in st.session_state["kinetics_excluded_keys"]
-                if not already_exists and not is_excluded:
-                    rate_table = pd.DataFrame([
-                        {
-                            "Reaction": rate_reaction,
-                            "Analyte": choose_analyte,
+                    is_excluded = plot_key in st.session_state["kinetics_excluded_keys"]
+                    if not already_exists and not is_excluded:
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(
+                            x=single_df["time"],
+                            y=single_df[analyte],
+                            mode="markers",
+                            name="data",
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=t_fine,
+                            y=y_fit,
+                            mode="lines",
+                            name="fitted curve",
+                            line=dict(color="#E53935", width=2),
+                        ))
+                        fig.update_layout(
+                            title=f"{analyte} - Reaction {rxn}",
+                            xaxis_title=f"Time ({time_unit})",
+                            yaxis_title=selected_measurements,
+                            width=400,
+                            height=250,
+                        )
+                        rate_table = pd.DataFrame([{
+                            "Reaction": rxn,
+                            "Analyte": analyte,
                             "Profile": profile_type,
                             "Rate": rate_val,
-                            "C0": par["C0"],
-                            "Ce": par["Ce"],
-                            "k": par["k"],
-                        }
-                    ])
-                    st.session_state["kinetics_plot_history"].append({
-                        "reaction": rate_reaction,
-                        "analyte": choose_analyte,
-                        "profile_type": profile_type,
-                        "fig": fig,
-                        "rate_table": rate_table,
-                        "selected_measurements": selected_measurements,
-                    })
-                    new_plot_added = True
-        else:
-            st.warning(f"Not enough data points for {choose_analyte}.")
-    else:
-        st.info("Select an analyte above to generate a plot.")
-                                                     
-    # Process any pending deletion before rendering widgets
+                            "C0": C0,
+                            "Ce": Ce,
+                            "k": k_fit,
+                        }])
+                        st.session_state["kinetics_plot_history"].append({
+                            "reaction": rxn,
+                            "analyte": analyte,
+                            "profile_type": profile_type,
+                            "fig": fig,
+                            "rate_table": rate_table,
+                            "selected_measurements": selected_measurements,
+                            "single_df": single_df,
+                            "t_fine": t_fine.tolist(),
+                            "y_fit": y_fit.tolist(),
+                        })
+
+        # Remove history plots for (rxn, analyte) pairs the user has deselected
+        st.session_state["kinetics_plot_history"] = [
+            h for h in st.session_state["kinetics_plot_history"]
+            if (h["reaction"], h["analyte"]) in chosen_rxn_analytes
+        ]
+
+    # ---- Display fit plot history ----
+    if "kinetics_remove_idx" not in st.session_state:
+        st.session_state["kinetics_remove_idx"] = None
+
     if st.session_state["kinetics_remove_idx"] is not None:
         idx_to_remove = st.session_state["kinetics_remove_idx"]
         st.session_state["kinetics_remove_idx"] = None
@@ -478,10 +508,7 @@ if not is_preprocessed:
             )
         st.rerun()
 
-    # Displays plot and corresponding rate table side by side
     if st.session_state["kinetics_plot_history"]:
-        if new_plot_added:
-            st.success("New plot added. Change reaction or analyte to add another.")
         st.divider()
         st.write("### Generated Fit Plots")
 
@@ -533,21 +560,12 @@ if not is_preprocessed:
     st.divider()
     st.subheader("Export Report")
     try:
-        color_by = st.session_state.get("_kinetics_color_by", "reactant")
-        select_meas = (
-            selected_measurements
-            if isinstance(selected_measurements, str)
-            else (selected_measurements[0] if selected_measurements else "area")
-        )
         pdf_bytes = generate_report_pdf(
-            df=df_plot,
-            select_meas=select_meas,
-            color_by=color_by,
             experiment_setup=st.session_state.get("experiment_setup", {}),
             hplc_file_name=st.session_state.get("hplc_file_name", "-"),
-            rate_reaction=rate_reaction,
-            rate_value=rate,
-            rate_params=rate_params or {},
+            plot_history=st.session_state.get("kinetics_plot_history", []),
+            reaction_plots=reaction_plot_data,
+            rate_summaries=rate_summaries,
         )
         st.download_button(
             "Download Report (.pdf)",

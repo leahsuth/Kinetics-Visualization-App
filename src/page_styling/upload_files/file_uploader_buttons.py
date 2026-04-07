@@ -1,9 +1,24 @@
+from typing import Callable, Optional
+
 import streamlit as st
 
-def experiment_conditions_button():
+
+def experiment_conditions_button(
+    template_bytes_fn: Optional[Callable[[], bytes]] = None,
+):
     with st.container(border=True):
         st.markdown("<div class='upload-card-label'>Experiment Conditions</div>", unsafe_allow_html=True)
         st.caption("Reactions, wells, and timepoints")
+
+        if template_bytes_fn is not None:
+            st.download_button(
+                label="Download template",
+                data=template_bytes_fn(),
+                file_name="experiment_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="experiment_conditions_template_dl",
+            )
 
         with st.popover("Template guide", use_container_width=True):
             st.markdown(

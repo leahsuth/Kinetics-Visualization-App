@@ -143,7 +143,7 @@ def generate_plate_svg(info: Dict[str, dict], color_by: str, n_items: int) -> st
     rows = list_of_letters(num_rows)
     cols = list(range(1, num_cols + 1))
 
-    cell = 52
+    cell = 40
     pad = 28
     lw = 26   # row-label width
     lh = 22   # col-label height
@@ -159,13 +159,13 @@ def generate_plate_svg(info: Dict[str, dict], color_by: str, n_items: int) -> st
         x = pad + lw + j * cell + cell // 2
         y = pad + lh // 2
         parts.append(f'<text x="{x}" y="{y}" text-anchor="middle" dominant-baseline="middle" '
-                     f'font-family="Arial" font-size="11" fill="#999">{c}</text>')
+                     f'font-family="Arial" font-size="13" fill="#999">{c}</text>')
 
     for i, r in enumerate(rows):
         rx = pad + lw // 2
         ry = pad + lh + i * cell + cell // 2
         parts.append(f'<text x="{rx}" y="{ry}" text-anchor="middle" dominant-baseline="middle" '
-                     f'font-family="Arial" font-size="11" fill="#999">{r}</text>')
+                     f'font-family="Arial" font-size="13" fill="#999">{r}</text>')
 
         for j, c in enumerate(cols):
             well_id = f"{r}{c}"
@@ -178,7 +178,7 @@ def generate_plate_svg(info: Dict[str, dict], color_by: str, n_items: int) -> st
             parts.append(f'<circle cx="{cx}" cy="{cy}" r="{r_circ}" fill="{color}" stroke="rgba(0,0,0,0.15)" stroke-width="1.2"/>')
             if well_id in info:
                 parts.append(f'<text x="{cx}" y="{cy}" text-anchor="middle" dominant-baseline="middle" '
-                             f'font-family="Arial" font-size="8" font-weight="bold" fill="#333">{well_id}</text>')
+                             f'font-family="Arial" font-size="10" font-weight="bold" fill="#333">{well_id}</text>')
 
     parts.append('</svg>')
     return "\n".join(parts)
@@ -195,7 +195,7 @@ def _render_legend(info: Dict[str, dict], color_by: str) -> None:
         return
     swatches = "".join(
         f"<span style='display:inline-flex;align-items:center;gap:5px;"
-        f"margin-right:14px;font-size:0.82rem;white-space:nowrap;'>"
+        f"margin-right:14px;font-size:0.92rem;white-space:nowrap;'>"
         f"<span style='display:inline-block;width:12px;height:12px;border-radius:50%;"
         f"background:{color};border:1px solid rgba(0,0,0,.15);'></span>{label}</span>"
         for label, color in seen.items()
@@ -206,13 +206,15 @@ def _render_legend(info: Dict[str, dict], color_by: str) -> None:
     )
 
 
-def _inject_well_colors(well_colors: Dict[str, str]) -> None:
+def _inject_well_colors(well_colors: Dict[str, str], well_px: int = 56) -> None:
     """Inject JS into parent page to color well buttons by their text label."""
     colors_js = json.dumps(well_colors)
+    px = max(40, min(80, int(well_px)))
     components.html(
         f"""<script>
         (function() {{
             var colors = {colors_js};
+            var px = {px};
             function apply() {{
                 try {{
                     var btns = window.parent.document.querySelectorAll(
@@ -223,11 +225,16 @@ def _inject_well_colors(well_colors: Dict[str, str]) -> None:
                         if (colors[t] !== undefined) {{
                             btn.style.setProperty('background', colors[t], 'important');
                             btn.style.setProperty('border-radius', '50%', 'important');
-                            btn.style.setProperty('width', '52px', 'important');
-                            btn.style.setProperty('height', '52px', 'important');
-                            btn.style.setProperty('font-size', '0.70rem', 'important');
+                            btn.style.setProperty('width', px + 'px', 'important');
+                            btn.style.setProperty('height', px + 'px', 'important');
                             btn.style.setProperty('font-weight', '700', 'important');
                             btn.style.setProperty('border', '2px solid rgba(49,51,63,.18)', 'important');
+                            btn.style.setProperty('padding', '0', 'important');
+                            btn.querySelectorAll('p, span').forEach(function(element) {{
+                                element.style.setProperty('font-size', '0.88rem', 'important');
+                                element.style.setProperty('color', 'rgba(26,31,51,.92)', 'important');
+                                element.style.setProperty('line-height', '1.1', 'important');
+                            }});
                         }}
                     }});
                 }} catch(e) {{}}
@@ -248,7 +255,6 @@ def render_plate_editor_modal(
     key_prefix: str,
     n_items: int,
     color_by: str,
-    show_labels: bool = True,
 ) -> Dict[str, dict]:
     st.session_state.setdefault(f"{key_prefix}_active_well", None)
 
@@ -290,17 +296,18 @@ def render_plate_editor_modal(
     header_cols[0].markdown("")
     for idx, col_num in enumerate(cols):
         header_cols[idx + 1].markdown(
-            f"<div style='text-align:center;font-weight:700;font-size:0.78rem;"
+            f"<div style='text-align:center;font-weight:700;font-size:0.92rem;"
             f"color:rgba(49,51,63,.45);'>{col_num}</div>",
             unsafe_allow_html=True,
         )
 
     well_colors: Dict[str, str] = {}
+    well_px = 56
     for r in rows:
         row_cols = st.columns(col_weights)
         row_cols[0].markdown(
-            f"<div style='text-align:right;padding-right:6px;padding-top:14px;"
-            f"font-weight:700;font-size:0.85rem;color:rgba(49,51,63,.55);'>{r}</div>",
+            f"<div style='text-align:right;padding-right:6px;padding-top:16px;"
+            f"font-weight:700;font-size:0.98rem;color:rgba(49,51,63,.55);'>{r}</div>",
             unsafe_allow_html=True,
         )
         for i, c in enumerate(cols):
@@ -313,19 +320,8 @@ def render_plate_editor_modal(
                     st.session_state[f"{key_prefix}_active_well"] = well_id
                     st.rerun()
 
-                if show_labels and well_id in info:
-                    label = str(info[well_id].get(color_by, "") or "").strip()
-                    st.markdown(
-                        f"<div style='font-size:0.65rem;color:rgba(49,51,63,.6);"
-                        f"text-align:center;overflow:hidden;text-overflow:ellipsis;"
-                        f"white-space:nowrap;max-width:52px;margin-top:-4px;'>{label}</div>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown("<div style='min-height:0.9rem;'></div>", unsafe_allow_html=True)
-
     # ── inject JS to apply colors to buttons ────────────────────────────────
-    _inject_well_colors(well_colors)
+    _inject_well_colors(well_colors, well_px=well_px)
 
     # ── open edit dialog when a well is clicked ──────────────────────────────
     if active and active in info:

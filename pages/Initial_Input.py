@@ -1,4 +1,5 @@
 # pages/initial_input.py
+import io
 import sys
 from pathlib import Path
 from typing import List, Optional, Dict
@@ -15,7 +16,8 @@ from src.page_styling.upload_files.file_uploader_buttons import (
     experiment_conditions_button,
     hplc_data_button,
 )
-from src.parsing.input_page.helpers import parse_excel
+from src.parsing.input_page.helpers import (clean_list, default_plate_color_field, parse_excel, unique_preserve_order,
+)
 from src.parsing.input_page.plate_setup import (
     apply_plate_mode,
     build_well_info,
@@ -49,6 +51,22 @@ source_choice = st.selectbox(
 )
 
 input_page_markdown.data_source_help_text()
+input_page_markdown.preprocessed_file_example()
+
+
+def excel_template_bytes() -> bytes:
+    df = pd.DataFrame(
+        [
+            {"Reaction": "1", "Reaction_Well": "A1", "Timepoint": "0", "Condition1": "LigA", "Condition2": "Cat1"},
+            {"Reaction": "2", "Reaction_Well": "A2", "Timepoint": "5", "Condition1": "", "Condition2": "Cat2"},
+            {"Reaction": "", "Reaction_Well": "", "Timepoint": "10", "Condition1": "", "Condition2": ""},
+        ]
+    )
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Experiment")
+    return buf.getvalue()
+
 
 # ── Step 1: Upload files ────────────────────────────────────────────────────
 uploaded = None
@@ -58,7 +76,7 @@ if source_choice == "ChemStation":
     col_cond, col_hplc = st.columns(2, gap="large")
 
     with col_cond:
-        uploaded = experiment_conditions_button()
+        uploaded = experiment_conditions_button(template_bytes_fn=excel_template_bytes)
 
     with col_hplc:
         hplc_data_button()
@@ -101,19 +119,45 @@ if source_choice == "ChemStation" and uploaded is not None:
         if cond_cols:
             st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
 
+    show_plate = st.radio(
+        "Generate plate map?",
+        ["Yes", "No"],
+        index=1,
+        horizontal=True,
+        key="generate_plate_map",
+        help="If Yes, open Review & Configure to edit the plate map.",
+    )
+
+    # Parsed condition columns; default color is a condition.
     color_choices = ["Reaction"] + cond_cols
+    _fp = tuple(cond_cols)
+    if st.session_state.get("_excel_cond_cols_fp") != _fp:
+        st.session_state["_excel_cond_cols_fp"] = _fp
+        st.session_state.pop("excel_color_by", None)
+
+    _default_field = default_plate_color_field(cond_cols)
+    if st.session_state.get("excel_color_by") not in color_choices:
+        st.session_state["excel_color_by"] = _default_field
+
     color_by = st.selectbox(
         "Color wells by",
-        options=color_choices,
-        index=0,
+        color_choices,
         key="excel_color_by",
-        help="Choose which field drives well colors in the plate map.",
     )
+
+    if show_plate == "Yes":
+        st.markdown(
+            "<div class='step-row'>"
+            "<span class='step-badge'>2</span>"
+            "<span class='step-title'>Review & Configure</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
     with st.expander("Preview reaction table", expanded=False):
         st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
 
-    if st.session_state["show_plate_modal"]:
+    if show_plate == "Yes" and st.session_state["show_plate_modal"]:
         base_info = build_well_info(reaction_rows, cond_cols)
         with st.container(border=True):
             well_info_excel = render_plate_editor_modal(
@@ -165,8 +209,6 @@ if source_choice == "ChemStation" and uploaded is not None:
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
 if source_choice == "Preprocessed":
-    input_page_markdown.preprocessed_file_example()
-
     input_page_markdown.step_label(1, "Upload Files")
 
     col_pre, col_meas = st.columns(2, gap="large")
@@ -244,31 +286,11 @@ if source_choice == "Preprocessed":
 
 # ── Saved setup summary ────────────────────────────────────────────────────
 
-setup = st.session_state.get("experiment_setup") or {}
+if st.button(
+    "📈  Visualize data and initial rates →",
+    type="primary",
+    use_container_width=True,
+    key="cta_kinetics",
+):
+    st.switch_page("pages/Kinetics.py")
 
-
-if setup:
-    st.divider()
-    with st.container(border=True):
-        st.markdown("**Saved Setup**")
-        if setup.get("source") == "preprocessed":
-            a, c = st.columns(2)
-            a.metric("Reactions", len(st.session_state["PREPROCESSED_DATA_DF"]["Reaction"].unique()))
-            c.metric("Preprocessed File", st.session_state.get("preprocessed_file_name", "—"))
-
-        else:
-            a, b, c = st.columns(3)
-            a.metric("Reactions", len(setup.get("reaction_rows", [])))
-            b.metric("Timepoints", len(setup.get("timepoints", [])))
-            hplc_name = st.session_state.get("hplc_file_name", "—")
-            c.metric("HPLC File", hplc_name if hplc_name else "—")
-
-        if st.button(
-            "📈  Visualize data and initial rates →",
-            type="primary",
-            use_container_width=True,
-            key="cta_kinetics",
-        ):
-            st.switch_page("pages/Kinetics.py")
-else:
-    st.stop()

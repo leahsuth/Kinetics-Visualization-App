@@ -21,6 +21,28 @@ def normalize_headers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def find_catalyst_loading_column(cond_cols: List[str]) -> Optional[str]:
+    """Match Catalyst_Loading / Catalyst Loading style headers."""
+    for c in cond_cols:
+        alnum = "".join(ch.lower() for ch in c if ch.isalnum())
+        if alnum == "catalystloading":
+            return c
+        n = "_".join(str(c).strip().lower().split())
+        if "catalyst" in n and "loading" in n:
+            return c
+    return None
+
+
+def default_plate_color_field(cond_cols: List[str]) -> str:
+    """Default 'Color wells by': catalyst loading if present, else first condition column, else Reaction."""
+    cat = find_catalyst_loading_column(cond_cols)
+    if cat:
+        return cat
+    if cond_cols:
+        return cond_cols[0]
+    return "Reaction"
+
+
 def find_col_contains(columns, *needles: str) -> Optional[str]:
     cols = [str(c).strip() for c in columns]
     low = [c.lower() for c in cols]

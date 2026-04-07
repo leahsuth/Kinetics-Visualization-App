@@ -59,27 +59,15 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
-_, col_dl, col_guide, _ = st.columns([1, 1, 1, 1])
-with col_dl:
-    downloaded = st.download_button(
-        label="Download template",
-        data=excel_template_bytes(),
-        file_name="experiment_template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+_, col_cta, _ = st.columns([1, 2, 1])
+with col_cta:
+    if st.button(
+        "📈  Visualize data and initial rates →",
+        type="primary",
         use_container_width=True,
-    )
-    if downloaded:
+        key="cta_Initial_Input",
+    ):
         st.switch_page("pages/Initial_Input.py")
-with col_guide:
-    with st.popover("Template guide", use_container_width=True):
-        st.markdown(
-            "| Column | Required? | Notes |\n"
-            "|---|---|---|\n"
-            "| **Reaction** | Yes | Unique reaction ID |\n"
-            "| **Timepoint** | Yes | One row per timepoint |\n"
-            "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
-            "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
-        )
 
 about_banner("About")
 

@@ -1,6 +1,11 @@
 [theme]
 primaryColor = "#007A73"
 backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f5f7fa"
+secondaryBackgroundColor = "#e3e3e3"
 textColor = "#262730"
 font = "sans serif"
+buttonRadius = "large"
+
+[server]
+fileWatcherType = "poll"
+runOnSave = true

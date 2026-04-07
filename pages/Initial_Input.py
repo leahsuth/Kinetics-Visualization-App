@@ -41,7 +41,6 @@ input_page_markdown.input_page_setup()
 input_page_markdown.setup_header()
 
 st.session_state.setdefault("experiment_setup", {})
-st.session_state.setdefault("show_plate_modal", True)
 
 source_choice = st.selectbox(
     "Select data source type",
@@ -111,53 +110,42 @@ if source_choice == "ChemStation" and uploaded is not None:
 
     input_page_markdown.step_label(2, "Review & Configure")
 
-    with st.container(border=True):
-        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
-        st.session_state["show_plate_modal"] = st.toggle(
-            "Enable", value=bool(st.session_state["show_plate_modal"])
-        )
-        if cond_cols:
-            st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
-
-    show_plate = st.radio(
-        "Generate plate map?",
-        ["Yes", "No"],
-        index=1,
-        horizontal=True,
-        key="generate_plate_map",
-        help="If Yes, open Review & Configure to edit the plate map.",
-    )
-
-    # Parsed condition columns; default color is a condition.
-    color_choices = ["Reaction"] + cond_cols
-    _fp = tuple(cond_cols)
-    if st.session_state.get("_excel_cond_cols_fp") != _fp:
-        st.session_state["_excel_cond_cols_fp"] = _fp
-        st.session_state.pop("excel_color_by", None)
-
-    _default_field = default_plate_color_field(cond_cols)
-    if st.session_state.get("excel_color_by") not in color_choices:
-        st.session_state["excel_color_by"] = _default_field
-
-    color_by = st.selectbox(
-        "Color wells by",
-        color_choices,
-        key="excel_color_by",
-    )
-
-    if show_plate == "Yes":
-        st.markdown(
-            "<div class='step-row'>"
-            "<span class='step-badge'>2</span>"
-            "<span class='step-title'>Review & Configure</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
     with st.expander("Preview reaction table", expanded=False):
         st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
 
-    if show_plate == "Yes" and st.session_state["show_plate_modal"]:
+    with st.container(border=True):
+        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
+        if cond_cols:
+            st.write(f"Condition columns detected: {', '.join(cond_cols)}")
+        
+        with st.container(horizontal=True, gap="large", vertical_alignment="center"):
+            show_plate = st.toggle(
+                "Generate plate map?",
+                key="generate_plate_map",
+                help="If Yes, open Review & Configure to edit the plate map.",
+            )
+
+            # Parsed condition columns; default color is a condition.
+            color_choices = ["Reaction"] + cond_cols
+            _fp = tuple(cond_cols)
+            if st.session_state.get("_excel_cond_cols_fp") != _fp:
+                st.session_state["_excel_cond_cols_fp"] = _fp
+                st.session_state.pop("excel_color_by", None)
+
+            _default_field = default_plate_color_field(cond_cols)
+            if st.session_state.get("excel_color_by") not in color_choices:
+                st.session_state["excel_color_by"] = _default_field
+
+            color_by = st.selectbox(
+                "Color wells by",
+                color_choices,
+                key="excel_color_by",
+                disabled=not(show_plate),
+                width=300
+            )
+
+
+    if show_plate:
         base_info = build_well_info(reaction_rows, cond_cols)
         with st.container(border=True):
             well_info_excel = render_plate_editor_modal(
@@ -249,13 +237,7 @@ if source_choice == "Preprocessed":
             icon="👇",
         )
 
-    st.markdown(
-        "<div class='step-row'>"
-        "<span class='step-badge'>2</span>"
-        "<span class='step-title'>Save & Proceed</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    input_page_markdown.step_label(2, "Save & Proceed")
 
     save_preprocessed = st.button(
         "Save setup",

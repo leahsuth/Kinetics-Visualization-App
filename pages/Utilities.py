@@ -1,10 +1,12 @@
 import streamlit as st
-from src.page_styling.utilities_page.concentration import concentration_widget
+from src.page_styling.utilities_page.concentration import main_concentration_widget
 
 st.logo(image='assets/Merck_Logo.png')
-st.write("# Unit Conversions")
+st.write("# Utility Functions")
 st.markdown(
-    "Convert common lab units across length, mass, volume, and temperature."
+    "Common mathemtical calculations performed in a laboratory setting."
 )
 
-concentration_widget()
+tab1, tab2, tab3, tab4 = st.tabs(["Concentration Calculations", "Dilutions", "Yield", "Purity"])
+with tab1:
+    main_concentration_widget()

@@ -50,7 +50,6 @@ source_choice = st.selectbox(
 )
 
 input_page_markdown.data_source_help_text()
-input_page_markdown.preprocessed_file_example()
 
 
 def excel_template_bytes() -> bytes:
@@ -205,11 +204,12 @@ if source_choice == "ChemStation" and uploaded is not None:
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
 if source_choice == "Processed":
-    input_page_markdown.step_label(1, "Upload Files")
+    input_page_markdown.preprocessed_file_example()
 
     col_pre, col_meas = st.columns(2, gap="large")
 
     with col_pre:
+        input_page_markdown.step_label(1, "Upload Files")
         with st.container(border=True):
             st.markdown("<div class='upload-card-label'>Processed Data</div>", unsafe_allow_html=True)
             st.caption("CSV or Excel with time and analyte columns (see Kinetics page).")
@@ -227,6 +227,7 @@ if source_choice == "Processed":
                 st.info(f"Using: {st.session_state['preprocessed_file_name']}")
 
     with col_meas:
+        input_page_markdown.step_label(2, "Update Measurement Type")
         with st.container(border=True):
             st.markdown("<div class='upload-card-label'>Measurement label</div>", unsafe_allow_html=True)
             st.caption("Used for plot axes (e.g. Concentration, Area %).")
@@ -244,58 +245,6 @@ if source_choice == "Processed":
             "Upload a processed CSV or XLSX file above, then save setup to continue.",
             icon="👇",
         )
-
-    input_page_markdown.step_label(2, "Plate Visualization (Optional)")
-
-    if preprocessed_ready:
-        with st.container(border=True):
-            st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
-            show_plate_pre = st.toggle(
-                "Generate plate map?",
-                key="preprocessed_generate_plate_map",
-                help="Requires a Reaction_Well column in your processed data file.",
-            )
-
-        if show_plate_pre:
-            try:
-                _pre_df = process_preprocessed_data(
-                    st.session_state.get("preprocessed_file_bytes")
-                )
-                _has_wells = "Reaction_Well" in _pre_df.columns and _pre_df["Reaction_Well"].notna().any()
-            except Exception:
-                _has_wells = False
-
-            if not _has_wells:
-                st.warning(
-                    "No plate well data found. Add a **Reaction_Well** column to your "
-                    "processed data file (e.g. A1, B3) to enable the plate visualization.",
-                    icon="⚠️",
-                )
-            else:
-                _pre_reactions = _pre_df[["Reaction", "Reaction_Well"]].drop_duplicates()
-                _pre_reaction_rows = [
-                    {"Reaction": str(row["Reaction"]), "Reaction_Well": str(row["Reaction_Well"])}
-                    for _, row in _pre_reactions.iterrows()
-                ]
-                _pre_well_info = build_well_info(_pre_reaction_rows, [])
-                with st.container(border=True):
-                    _pre_well_info_edited = render_plate_editor_modal(
-                        _pre_well_info,
-                        title="Plate Map",
-                        key_prefix="pre_plate",
-                        n_items=len(_pre_reaction_rows),
-                        color_by="Reaction",
-                    )
-                    st.session_state["preprocessed_plate_well_info"] = _pre_well_info_edited
-                    _pre_svg = generate_plate_svg(_pre_well_info_edited, "Reaction", len(_pre_reaction_rows))
-                    st.download_button(
-                        "Download plate image (.png)",
-                        data=_svg_to_png(_pre_svg),
-                        file_name="plate_map.png",
-                        mime="image/png",
-                        use_container_width=True,
-                        key="pre_dl_png",
-                    )
 
     input_page_markdown.step_label(3, "Save & Proceed")
 

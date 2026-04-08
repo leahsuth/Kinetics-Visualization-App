@@ -59,6 +59,8 @@ cd MERCK-1-26-Team-main
 
 4. Open in Browser: http://localhost:8501
 
+### Directory
+
 ```
 ├── AUTHORS.md                                  Lists authors of this repo
 ├── Dockerfile                                  Defines the base environment, installs dependencies, and sets the working directory to build the application
@@ -70,14 +72,14 @@ cd MERCK-1-26-Team-main
 │   ├── Merck_Logo.png                          Company logo
 │   └── Unit_Conversions.png                    Instructions for Unit Conversions page
 ├── build_image.sh                              Builds the application
-├── data                                        Sample datafiles
+├── data                                        Example datafiles
 │   ├── Example_Data_SpiroXantPhos.csv
 │   ├── NB-0123-0005_Cat_Loading_Conditions.csv
 │   ├── NB-0123-0005_Cat_Loading_Conditions.xlsx
 │   ├── NB-0123-0005_Cat_Loading_Data.csv
 │   ├── NB-0123-0005_Cat_Loading_Data.xlsx
 │   └── NB-0123-0005_Cat_Loading_Initial_Rates.xlsx
-├── dataset_with_loading_data.csv               Sample datafile
+├── dataset_with_loading_data.csv               Example datafile
 ├── docker-compose.yml                          Standardizes application environment
 ├── index.css                                   Configures buttons used within application
 ├── interactive.sh                              Allows users to input commands
@@ -129,6 +131,25 @@ cd MERCK-1-26-Team-main
     ├── test_graphs.py                          Tests for graphing
     └── test_parsing_data.py                    Tests for data parsing
 ```
+### Naming Conventions
+| **Object**               | **Convention**           | **Example**                                                                          |
+|--------------------------|--------------------------|--------------------------------------------------------------------------------------|
+| Directories              | lowercase                | src, page_styling                                                                   |
+| .png files               | File_name.py             | Kinetics.png, Initial_input.png                                                     |
+| .py files                | module_name.py          | plate_selector.py, Initial_Input.py                                                  |
+| .md files                | UPPERCASE.md             |  AUTHORS.md, README.md                                                               |
+| .sh files                | snake_case               | build_image.sh, run_image.sh                                                        |
+| .css files               | snake_case              |  index.css                                                                            |
+| .yml files              |  kebab-case               | docker-compose.yml                                                                  |
+| .txt files               | lowercase                | requirements.txt                                                                     |
+| Example data             | Original name            | NB-0123-0005_Cat_Loading_Conditions.csv, NB-0123-0005_Cat_Loading_Initial_Rates.xlsx |
+|  Src Packages             |    snake_case           |  src/parsing, input_page                                                             |
+|  Functions & Variables    |    snake_case           |  reaction_rows, excel_template_bytes                                                  |
+| Constants                  | UPPER_SNAKE               |  MAX_ROWS, CONDITIONS                                                              |
+| Private Variables         | Leading _                | _svg_to_png, _normalize_well                                                        |
+| Types & Classes from Libraries |  PascalCase        | pd.DataFrame, ValueError, Path                                                        |
+| String Data & Column names | Matches values in Spreadsheet | Reaction, Condition1                                                           |
+| Page files                | PascalCase              | Initial_Input.py, Kinetics.py                                                         |
 
 
 

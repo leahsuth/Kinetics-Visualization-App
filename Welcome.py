@@ -59,24 +59,10 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
-st.markdown("""
-<style>
-div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #2E7D32 !important;
-    border-color: #2E7D32 !important;
-    color: white !important;
-}
-div[data-testid="stButton"] button[kind="primary"]:hover {
-    background-color: #1B5E20 !important;
-    border-color: #1B5E20 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 _, col_cta, _ = st.columns([1, 2, 1])
 with col_cta:
     if st.button(
-        "Click here to begin",
+        "📈  Visualize data and initial rates →",
         type="primary",
         use_container_width=True,
         key="cta_Initial_Input",

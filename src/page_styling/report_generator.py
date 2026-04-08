@@ -7,7 +7,14 @@ import matplotlib.pyplot as plt
 from fpdf import FPDF
 
 
-def _df_to_png(df, select_meas: str, color_by: str) -> bytes:
+def _df_to_png(
+    df,
+    select_meas: str,
+    color_by: str,
+    title_text: str | None = None,
+    x_label: str = "Time",
+    y_label: str | None = None,
+) -> bytes:
     """Render the kinetics dataframe as a matplotlib PNG."""
     fig, ax = plt.subplots(figsize=(11, 4.5))
     color_col = color_by if color_by in df.columns else (
@@ -16,9 +23,9 @@ def _df_to_png(df, select_meas: str, color_by: str) -> bytes:
     for label, group in df.groupby(color_col):
         group = group.sort_values("time")
         ax.scatter(group["time"], group[select_meas], label=str(label))
-    ax.set_xlabel("Time")
-    ax.set_ylabel(select_meas)
-    ax.set_title(f"{select_meas} vs. time", fontsize=14)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label or select_meas)
+    ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=14)
     ax.legend(title=color_col, bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
     fig.tight_layout()
     buf = io.BytesIO()
@@ -82,7 +89,14 @@ def generate_report_pdf(
         pdf.ln(2)
         for item in reaction_plots:
             try:
-                rxn_png = _df_to_png(item["df"], item["select_meas"], item["color_by"])
+                rxn_png = _df_to_png(
+                    item["df"],
+                    item["select_meas"],
+                    item["color_by"],
+                    title_text=item.get("title_text"),
+                    x_label=item.get("x_label", "Time"),
+                    y_label=item.get("y_label"),
+                )
                 pdf.set_font("Helvetica", "B", 10)
                 pdf.cell(0, 6, f"Reaction {item['reaction']}", new_x="LMARGIN", new_y="NEXT")
                 pdf.image(io.BytesIO(rxn_png), w=160)

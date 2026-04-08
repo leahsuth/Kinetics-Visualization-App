@@ -112,22 +112,22 @@ cd MERCK-1-26-Team-main
 │   │   │   ├── helpers.py                      Parses uploaded datafile
 │   │   │   └── plate_setup.py                  Formats parsed reaction rows for generation of plate map & Kinetics graphs
 │   │   ├── parse_file_type.py                  Enables user to upload .csv and .xlsx files
-│   │   ├── parsing_cat_loading_conditions.py   
-│   │   ├── parsing_data.py
-│   │   ├── parsing_hplc_files.py
-│   │   ├── plotting_process.py
-│   │   ├── process_preprocessed_data.py
-│   │   └── standardize.py
-│   ├── regression
-│   │   └── rate_calculation.py
-│   └── utils
-│       ├── png_utils.py
-│       └── utilities_page.py
-└── tests
-    ├── conftest.py
-    ├── initial_rate_tests.py
-    ├── test_graphs.py
-    └── test_parsing_data.py
+│   │   ├── parsing_cat_loading_conditions.py   Parses experiment condition files
+│   │   ├── parsing_data.py                     Parses Kinetics files
+│   │   ├── parsing_hplc_files.py               Converts uploaded .csv, .xls, and .xlsx files into a pandas DataFrame
+│   │   ├── plotting_process.py                 Formats pandas DataFrame for Kinetics plots
+│   │   ├── process_preprocessed_data.py        Converts uploaded preprocessed data files into a pandas DataFrame
+│   │   └── standardize.py                      Converts ChemStation HPLC tables into a long format for plot generation
+│   ├── regression                              Linear Regression directory
+│   │   └── rate_calculation.py                 Calculates & fits the initial rate
+│   └── utils                                   Directory for helpers
+│       ├── png_utils.py                        Converts svg strings to .png bytes
+│       └── utilities_page.py                   (Pending)
+└── tests                                       Test Directory
+    ├── conftest.py                             Sets repository root on sys.path 
+    ├── initial_rate_tests.py                   Tests for initial rate
+    ├── test_graphs.py                          Tests for graphing
+    └── test_parsing_data.py                    Tests for data parsing
 ```
 
 

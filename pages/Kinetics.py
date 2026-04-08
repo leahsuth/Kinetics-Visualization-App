@@ -132,7 +132,7 @@ if is_preprocessed:
     )
 
     multi_plot_choice = st.radio(
-        "Visualize reaction data in multiple plots?",
+        "Generate a plot for every reaction?",
         ["No", "Yes"],
         index=1,
         horizontal=True,
@@ -244,7 +244,7 @@ else:
     )
 
     multi_plot_choice = st.radio(
-        "Visualize reaction data in multiple plots?",
+        "Generate a plot for every reaction?",
         ["No", "Yes"],
         index=1,
         horizontal=True,

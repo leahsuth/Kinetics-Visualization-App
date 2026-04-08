@@ -291,108 +291,7 @@ else:
     first_line = st.session_state["first_line"]
     st.caption(first_line)
 
-    # ---- Combined Plots ----
-    st.divider()
-    st.write("### Combined Plots")
-    st.caption("Generate a single plot comparing analytes within one reaction, or one analyte across all reactions.")
-
-    if "combined_plot_history" not in st.session_state:
-        st.session_state["combined_plot_history"] = []
-    if "combined_plot_excluded_keys" not in st.session_state:
-        st.session_state["combined_plot_excluded_keys"] = set()
-    if "combined_plot_remove_idx" not in st.session_state:
-        st.session_state["combined_plot_remove_idx"] = None
-
-    combined_mode = st.radio(
-        "Plot type",
-        ["1 reaction — multiple analytes", "All reactions — 1 analyte"],
-        horizontal=True,
-        key="combined_plot_mode",
-    )
-
-    if combined_mode == "1 reaction — multiple analytes":
-        rxn_pick = st.selectbox("Select reaction", selected_reactions, key="combined_rxn_pick")
-        add_key = ("rxn", rxn_pick)
-        def _build_combined_fig():
-            df_c = df_plot[df_plot["reaction"].astype(str) == str(rxn_pick)]
-            return graph_from_xlsx(
-                df=df_c,
-                select_meas=selected_measurements,
-                color_select="reactant",
-                chart_type=chart_type,
-                title_suffix=f"Reaction {rxn_pick} — all analytes",
-                time_unit=time_unit,
-            ), df_c, "reactant", f"Reaction {rxn_pick} — all analytes"
-    else:
-        analyte_pick = st.selectbox("Select analyte", selected_analytes, key="combined_analyte_pick")
-        add_key = ("analyte", analyte_pick)
-        def _build_combined_fig():
-            df_c = df_plot[df_plot["reactant"].astype(str) == str(analyte_pick)]
-            return graph_from_xlsx(
-                df=df_c,
-                select_meas=selected_measurements,
-                color_select="reaction",
-                chart_type=chart_type,
-                title_suffix=f"{analyte_pick} — all reactions",
-                time_unit=time_unit,
-            ), df_c, "reaction", f"{analyte_pick} — all reactions"
-
-    if st.button("Add plot", key="combined_add_plot"):
-        already_exists = any(
-            h["add_key"] == add_key
-            for h in st.session_state["combined_plot_history"]
-        )
-        is_excluded = add_key in st.session_state["combined_plot_excluded_keys"]
-        if already_exists:
-            st.toast("This plot is already in the history.")
-        elif is_excluded:
-            st.toast("This plot was deleted. Clear all plots to re-add it.")
-        else:
-            fig_c, df_c, color_c, title_c = _build_combined_fig()
-            st.session_state["combined_plot_history"].append({
-                "add_key": add_key,
-                "fig": fig_c,
-                "title": title_c,
-                "df": df_c,
-                "select_meas": selected_measurements,
-                "color_by": color_c,
-            })
-            st.rerun()
-
-    # Process any pending combined-plot deletion
-    if st.session_state["combined_plot_remove_idx"] is not None:
-        idx_r = st.session_state["combined_plot_remove_idx"]
-        st.session_state["combined_plot_remove_idx"] = None
-        history_c = st.session_state["combined_plot_history"]
-        if 0 <= idx_r < len(history_c):
-            removed_c = history_c.pop(idx_r)
-            st.session_state["combined_plot_excluded_keys"].add(removed_c["add_key"])
-        st.rerun()
-
-    if st.session_state["combined_plot_history"]:
-        st.divider()
-        hdr_c, btn_c = st.columns([3, 1])
-        with hdr_c:
-            st.caption("Generated combined plots — click ✕ to remove individual plots.")
-        with btn_c:
-            if st.button("Clear all combined plots", key="clear_combined_plots",
-                         type="primary", use_container_width=True):
-                st.session_state["combined_plot_history"] = []
-                st.session_state["combined_plot_excluded_keys"] = set()
-                st.rerun()
-
-        for idx_c, item_c in enumerate(st.session_state["combined_plot_history"]):
-            col_title, col_x = st.columns([8, 1])
-            with col_title:
-                st.caption(f"**{item_c['title']}**")
-            with col_x:
-                if st.button("✕", key=f"del_combined_{idx_c}", help="Remove this plot"):
-                    st.session_state["combined_plot_remove_idx"] = idx_c
-                    st.rerun()
-            st.plotly_chart(item_c["fig"], use_container_width=True)
-            st.divider()
-
-    # Collect entries for the PDF report (per-reaction plots + combined plots)
+    # Collect one entry per selected reaction for the PDF report
     reaction_plot_data = []
     for rxn in selected_reactions:
         df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
@@ -403,13 +302,6 @@ else:
                 "select_meas": selected_measurements,
                 "color_by": color_by,
             })
-    for item_c in st.session_state["combined_plot_history"]:
-        reaction_plot_data.append({
-            "reaction": item_c["title"],
-            "df": item_c["df"],
-            "select_meas": item_c["select_meas"],
-            "color_by": item_c["color_by"],
-        })
 
 rate_summaries = []
 

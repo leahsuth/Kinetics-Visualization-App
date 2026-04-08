@@ -39,7 +39,7 @@ def about_banner(title, subtitle=None, full_width=False):
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0,122,115,0.2);
     ">
-        <h1 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{title}</h1>
+        <h1 style="margin: 0; font-size: 1rem; font-weight: 700;">{title}</h1>
     </div>
     """,
         unsafe_allow_html=True,

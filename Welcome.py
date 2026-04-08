@@ -59,6 +59,22 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
+st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="primary"] {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+    color: white !important;
+    font-size: 1.15rem !important;
+    padding: 0.6rem 1.2rem !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    background-color: #222222 !important;
+    border-color: #222222 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 _, col_cta, _ = st.columns([1, 2, 1])
 with col_cta:
     if st.button(

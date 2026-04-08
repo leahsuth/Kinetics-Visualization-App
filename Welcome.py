@@ -25,7 +25,7 @@ st.markdown("<div style='height: 4rem;'></div>", unsafe_allow_html=True)
 
 # Let's Get Started banner + help in corner
 SLIDES_DIR = Path(__file__).parent / "assets"
-instruction_images = ["Initial_input.png", "Kinetics.png", "Unit_Conversions.png"]
+instruction_images = ["Initial_input.png", "Kinetics_main_plot.png", "Kinetics_initial_rate.png", "Unit_Conversions.png"]
 instruction_paths = [SLIDES_DIR / f for f in instruction_images if (SLIDES_DIR / f).exists()]
 
 col_left, col_banner, col_help = st.columns([1.5, 17, 1.5])
@@ -92,7 +92,8 @@ about_main_body("""This app is designed to streamline and automate the process o
          <li>Generating plate layouts from reaction conditions</li>
          <li>Graphing Peak Area over Time</li>
          <li>Graphing Peak Area Percent over Time</li>
-         <li>Calculating initial rates</li>
+         <li>Calculating initial rates </li>
+         <li>Graphing exponential fit of reactions</li>
          <li>Downloading plots as PNGs</li>
          <li>Unit conversion</li>
        </ul>""")

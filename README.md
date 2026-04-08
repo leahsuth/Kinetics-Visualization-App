@@ -105,8 +105,6 @@ cd MERCK-1-26-Team-main
 │   │   │   └── file_uploader_buttons.py        Configures buttons to upload experimental conditions & HPLC data on Initial Input page
 │   │   ├── utilities_page                      Directory for Unit Conversion page
 │   │   │   ├── concentration.py                Calls concentration widget UI
-│   │   │   ├── dilution.py                     (Pending) 
-│   │   │   └── unit_conversion.py              (Pending)
 │   │   └── welcome_page.py                     Configures UI for Welcome page
 │   ├── parsing                                 Directory for parsing datafiles
 │   │   ├── add_loading_data_info.py            Loads information from Initial Input file into a dataframe
@@ -124,7 +122,6 @@ cd MERCK-1-26-Team-main
 │   │   └── rate_calculation.py                 Calculates & fits the initial rate
 │   └── utils                                   Directory for helpers
 │       ├── png_utils.py                        Converts svg strings to .png bytes
-│       └── utilities_page.py                   (Pending)
 └── tests                                       Test Directory
     ├── conftest.py                             Sets repository root on sys.path 
     ├── initial_rate_tests.py                   Tests for initial rate

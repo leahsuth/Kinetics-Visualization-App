@@ -44,9 +44,9 @@ st.session_state.setdefault("experiment_setup", {})
 
 source_choice = st.selectbox(
     "Select data source type",
-    ("ChemStation", "Preprocessed"),
+    ("ChemStation", "Processed"),
     index=None,
-    help="Choose ChemStation for data directly from ChemStation, or Preprocessed for ready-to-plot data.",
+    help="Choose ChemStation for data directly from ChemStation, or Processed for ready-to-plot data.",
 )
 
 input_page_markdown.data_source_help_text()
@@ -146,25 +146,33 @@ if source_choice == "ChemStation" and uploaded is not None:
 
 
     if show_plate:
-        base_info = build_well_info(reaction_rows, cond_cols)
-        with st.container(border=True):
-            well_info_excel = render_plate_editor_modal(
-                base_info,
-                title="Plate Map",
-                key_prefix="excel_plate",
-                n_items=len(reaction_rows),
-                color_by=color_by,
+        has_wells = any(str(r.get("Reaction_Well", "")).strip() for r in reaction_rows)
+        if not has_wells:
+            st.warning(
+                "No plate well data found. Add a **Reaction_Well** column to your "
+                "conditions file (e.g. A1, B3) to enable the plate visualization.",
+                icon="⚠️",
             )
-            st.session_state["excel_plate_well_info"] = well_info_excel
-            svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
-            st.download_button(
-                "Download plate image (.png)",
-                data=_svg_to_png(svg),
-                file_name="plate_map.png",
-                mime="image/png",
-                use_container_width=True,
-                key="excel_dl_png",
-            )
+        else:
+            base_info = build_well_info(reaction_rows, cond_cols)
+            with st.container(border=True):
+                well_info_excel = render_plate_editor_modal(
+                    base_info,
+                    title="Plate Map",
+                    key_prefix="excel_plate",
+                    n_items=len(reaction_rows),
+                    color_by=color_by,
+                )
+                st.session_state["excel_plate_well_info"] = well_info_excel
+                svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
+                st.download_button(
+                    "Download plate image (.png)",
+                    data=_svg_to_png(svg),
+                    file_name="plate_map.png",
+                    mime="image/png",
+                    use_container_width=True,
+                    key="excel_dl_png",
+                )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     input_page_markdown.step_label(3, "Save & Proceed")
 
@@ -196,17 +204,17 @@ if source_choice == "ChemStation" and uploaded is not None:
             st.session_state["cat_loading_df"] = annotated_df
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
-if source_choice == "Preprocessed":
+if source_choice == "Processed":
     input_page_markdown.step_label(1, "Upload Files")
 
     col_pre, col_meas = st.columns(2, gap="large")
 
     with col_pre:
         with st.container(border=True):
-            st.markdown("<div class='upload-card-label'>Preprocessed Data</div>", unsafe_allow_html=True)
+            st.markdown("<div class='upload-card-label'>Processed Data</div>", unsafe_allow_html=True)
             st.caption("CSV or Excel with time and analyte columns (see Kinetics page).")
             pre_file = st.file_uploader(
-                "Upload preprocessed data (.csv or .xlsx)",
+                "Upload processed data (.csv or .xlsx)",
                 type=["csv", "xlsx"],
                 key="preprocessed_uploader",
                 label_visibility="collapsed",

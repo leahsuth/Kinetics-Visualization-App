@@ -61,9 +61,36 @@ def _add_other_info(df, cat_df):
     lookup_copy = cat_df.copy()
     lookup_copy = lookup_copy.drop(columns=["time", "well"], errors="ignore")
 
+    # Prefer base condition names (e.g., ligand) over merged helper suffixes
+    # (e.g., ligand_rxn) when both are present.
+    rxn_suffix_cols = [
+        c for c in lookup_copy.columns
+        if isinstance(c, str) and c.endswith("_rxn")
+    ]
+    cols_to_drop = []
+    for c in rxn_suffix_cols:
+        base = c[:-4]
+        if base in lookup_copy.columns:
+            cols_to_drop.append(c)
+    if cols_to_drop:
+        lookup_copy = lookup_copy.drop(columns=cols_to_drop, errors="ignore")
+
     # One row per reaction so merge is many-to-one
     lookup_copy = lookup_copy.drop_duplicates(subset=["Reaction"], keep="first")
 
+    # Avoid duplicate columns after merge (case/spacing-insensitive).
+    existing_norm = {
+        str(c).strip().lower().replace(" ", "_") for c in merged.columns
+    }
+    keep_cols = ["Reaction"]
+    for c in lookup_copy.columns:
+        if c == "Reaction":
+            continue
+        c_norm = str(c).strip().lower().replace(" ", "_")
+        if c_norm not in existing_norm:
+            keep_cols.append(c)
+
+    lookup_copy = lookup_copy[keep_cols]
     merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
 
     return merged

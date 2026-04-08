@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from src.parsing.parsing_data import process_streamlit
+from src.parsing.parsing_data import process_streamlit, format_download_columns
 from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx
@@ -579,13 +579,14 @@ if not is_preprocessed:
         st.warning(f"PDF export unavailable: {e}")
 
     st.divider()
-    st.subheader("Download data file")
+    st.subheader("Download Processed Data File")
     st.caption(
-        "HPLC data file after **add_loading_data_info** (experiment conditions, reaction, time merged in)."
+        "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
     )
     _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
     _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
-    _merged_csv = df_after_add_loading.to_csv(index=False).encode("utf-8")
+    download_df = format_download_columns(df_after_add_loading)
+    _merged_csv = download_df.to_csv(index=False).encode("utf-8")
     st.download_button(
         "Download processed data (.csv)",
         data=_merged_csv,

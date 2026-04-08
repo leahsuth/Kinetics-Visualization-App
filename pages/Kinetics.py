@@ -306,7 +306,7 @@ else:
 rate_summaries = []
 
 # ----Initial Rate----------------------------------------
-if not is_preprocessed:
+if True:
     st.divider()
     st.write("# Initial Rate Calculations")
 
@@ -338,18 +338,54 @@ if not is_preprocessed:
             rows.append({"Analyte": analyte, "Rate": r})
         return pd.DataFrame(rows)
 
+    # add y_measure_label
+    if is_preprocessed:
+        y_measure_label = st.session_state.get("measurement_type", "Concentration")
+    else:
+        y_measure_label = selected_measurements
+
     # Compute pivot tables once per reaction and reuse for both summary and fit plots
     df_rate_by_rxn: dict = {}
     for rxn in selected_reactions:
-        df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
-        if not df_rxn.empty:
+        if is_preprocessed:
+            df_rxn = df_preproc_plot[df_preproc_plot["Reaction"].astype(str) == str(rxn)]
+            if df_rxn.empty:
+                continue
+            value_cols = [a for a in selected_analytes if a in df_rxn.columns]
+            if not value_cols:
+                continue
+            long_rxn = (
+                df_rxn.melt(
+                    id_vars=["time", "Reaction"],
+                    value_vars=value_cols,
+                    var_name="reactant",
+                    value_name="value",
+                )
+                .dropna(subset=["time", "value"])
+                .copy()
+            )
+            long_rxn["time"] = pd.to_numeric(long_rxn["time"], errors="coerce")
+            long_rxn["value"] = pd.to_numeric(long_rxn["value"], errors="coerce")
+            long_rxn = long_rxn.dropna(subset=["time", "value"])
+            if long_rxn.empty:
+                continue
             df_rate_by_rxn[rxn] = (
-                df_rxn.pivot_table(
-                    index="time", columns="reactant", values="peak_ap", aggfunc="mean"
+                long_rxn.pivot_table(
+                    index="time", columns="reactant", values="value", aggfunc="mean"
                 )
                 .reset_index()
                 .sort_values("time")
             )
+        else:
+            df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
+            if not df_rxn.empty:
+                df_rate_by_rxn[rxn] = (
+                    df_rxn.pivot_table(
+                        index="time", columns="reactant", values="peak_ap", aggfunc="mean"
+                    )
+                    .reset_index()
+                    .sort_values("time")
+                )
 
     # ---- Rate Summary ----
     st.write("### Rate Summary")
@@ -462,7 +498,7 @@ if not is_preprocessed:
                         fig.update_layout(
                             title=f"{analyte} - Reaction {rxn}",
                             xaxis_title=f"Time ({time_unit})",
-                            yaxis_title=selected_measurements,
+                            yaxis_title=y_measure_label,
                             width=400,
                             height=250,
                         )
@@ -481,7 +517,7 @@ if not is_preprocessed:
                             "profile_type": profile_type,
                             "fig": fig,
                             "rate_table": rate_table,
-                            "selected_measurements": selected_measurements,
+                            "selected_measurements": y_measure_label,
                             "single_df": single_df,
                             "t_fine": t_fine.tolist(),
                             "y_fit": y_fit.tolist(),
@@ -557,42 +593,43 @@ if not is_preprocessed:
                         )
             st.divider()
 
-    st.divider()
-    st.subheader("Export Report")
-    try:
-        pdf_bytes = generate_report_pdf(
-            experiment_setup=st.session_state.get("experiment_setup", {}),
-            hplc_file_name=st.session_state.get("hplc_file_name", "-"),
-            plot_history=st.session_state.get("kinetics_plot_history", []),
-            reaction_plots=reaction_plot_data,
-            rate_summaries=rate_summaries,
+    if not is_preprocessed:
+        st.divider()
+        st.subheader("Export Report")
+        try:
+            pdf_bytes = generate_report_pdf(
+                experiment_setup=st.session_state.get("experiment_setup", {}),
+                hplc_file_name=st.session_state.get("hplc_file_name", "-"),
+                plot_history=st.session_state.get("kinetics_plot_history", []),
+                reaction_plots=reaction_plot_data,
+                rate_summaries=rate_summaries,
+            )
+            st.download_button(
+                "Download Report (.pdf)",
+                data=pdf_bytes,
+                file_name="kinetics_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="primary",
+            )
+        except Exception as e:
+            st.warning(f"PDF export unavailable: {e}")
+
+        st.divider()
+        st.subheader("Download Processed Data File")
+        st.caption(
+            "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
         )
+        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
+        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+        download_df = format_download_columns(df_after_add_loading)
+        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "Download Report (.pdf)",
-            data=pdf_bytes,
-            file_name="kinetics_report.pdf",
-            mime="application/pdf",
+            "Download processed data (.csv)",
+            data=_merged_csv,
+            file_name=f"{_stem}_processed.csv",
+            mime="text/csv",
             use_container_width=True,
             type="primary",
+            key="chemstation_download_processed_csv",
         )
-    except Exception as e:
-        st.warning(f"PDF export unavailable: {e}")
-
-    st.divider()
-    st.subheader("Download Processed Data File")
-    st.caption(
-        "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
-    )
-    _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-    _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
-    download_df = format_download_columns(df_after_add_loading)
-    _merged_csv = download_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download processed data (.csv)",
-        data=_merged_csv,
-        file_name=f"{_stem}_processed.csv",
-        mime="text/csv",
-        use_container_width=True,
-        type="primary",
-        key="chemstation_download_processed_csv",
-    )

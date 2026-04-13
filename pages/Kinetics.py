@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from src.parsing.parsing_data import process_streamlit
+from src.parsing.parsing_data import process_streamlit, format_download_columns
 from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.page_styling.rate_information import profile_picker
-from src.figures.graph_xl import graph_from_xlsx
+from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import rate_calculation, fit_kinetics_and_return_params, exp_func
@@ -63,9 +63,12 @@ with st.spinner("Loading data..."):
         )
         st.session_state["first_line"] = first_line
 
+# Collect one entry per selected reaction for the PDF report
+reaction_plot_data = []
+
 # ----Plotting----------------------------------------
 if is_preprocessed:
-    st.success("Loaded preprocessed file.")
+    st.success("Loaded processed data file.")
 
     reactions = final_df["Reaction"].dropna().astype(str).unique().tolist()
     selected_reactions = st.multiselect(
@@ -112,7 +115,7 @@ if is_preprocessed:
     df_preproc_plot = df_plot[_chart_cols]
 
     color_options = ["Reaction", "Analyte"]
-    default_color_by = st.session_state.get("_kinetics_color_by", "Reaction")
+    default_color_by = st.session_state.get("_kinetics_color_by", "Analyte")
     if default_color_by not in color_options:
         default_color_by = color_options[0] if color_options else "Reaction"
 
@@ -132,7 +135,7 @@ if is_preprocessed:
     )
 
     multi_plot_choice = st.radio(
-        "Visualize reaction data in multiple plots?",
+        "Generate a plot for every reaction?",
         ["No", "Yes"],
         index=1,
         horizontal=True,
@@ -175,6 +178,38 @@ if is_preprocessed:
             chart_type=chart_type,
             time_unit=time_unit,
         )
+
+    # Collect one entry per selected reaction for the PDF report
+    for rxn in selected_reactions:
+        df_rxn = df_preproc_plot[df_preproc_plot["Reaction"].astype(str) == str(rxn)]
+        if df_rxn.empty:
+            continue
+        value_cols = [a for a in selected_analytes if a in df_rxn.columns]
+        if not value_cols:
+            continue
+        long_rxn = (
+            df_rxn.melt(
+                id_vars=["time", "Reaction"],
+                value_vars=value_cols,
+                var_name="reactant",
+                value_name="value",
+            )
+            .dropna(subset=["time", "value"])
+            .copy()
+        )
+        if long_rxn.empty:
+            continue
+        color_by_pdf = "reactant" if color_by == "Analyte" else color_by
+        measurement_type = st.session_state.get("measurement_type", "Concentration")
+        reaction_plot_data.append({
+            "reaction": rxn,
+            "df": long_rxn,
+            "select_meas": "value",
+            "color_by": color_by_pdf,
+            "title_text": f"{measurement_type} vs. Time for Reaction {rxn}",
+            "x_label": f"Time ({time_unit})",
+            "y_label": measurement_type,
+        })
 
 else:
     st.success("Loaded HPLC file.")
@@ -244,7 +279,7 @@ else:
     )
 
     multi_plot_choice = st.radio(
-        "Visualize reaction data in multiple plots?",
+        "Generate a plot for every reaction?",
         ["No", "Yes"],
         index=1,
         horizontal=True,
@@ -292,21 +327,24 @@ else:
     st.caption(first_line)
 
     # Collect one entry per selected reaction for the PDF report
-    reaction_plot_data = []
     for rxn in selected_reactions:
         df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
         if not df_rxn.empty:
+            pretty_meas = update_measurement_label(selected_measurements)
             reaction_plot_data.append({
                 "reaction": rxn,
                 "df": df_rxn,
                 "select_meas": selected_measurements,
                 "color_by": color_by,
+                "title_text": f"{pretty_meas} vs. Time for Reaction {rxn}",
+                "x_label": f"Time ({time_unit})",
+                "y_label": pretty_meas,
             })
 
 rate_summaries = []
 
 # ----Initial Rate----------------------------------------
-if not is_preprocessed:
+if True:
     st.divider()
     st.write("# Initial Rate Calculations")
 
@@ -338,18 +376,54 @@ if not is_preprocessed:
             rows.append({"Analyte": analyte, "Rate": r})
         return pd.DataFrame(rows)
 
+    # add y_measure_label
+    if is_preprocessed:
+        y_measure_label = st.session_state.get("measurement_type", "Concentration")
+    else:
+        y_measure_label = selected_measurements
+
     # Compute pivot tables once per reaction and reuse for both summary and fit plots
     df_rate_by_rxn: dict = {}
     for rxn in selected_reactions:
-        df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
-        if not df_rxn.empty:
+        if is_preprocessed:
+            df_rxn = df_preproc_plot[df_preproc_plot["Reaction"].astype(str) == str(rxn)]
+            if df_rxn.empty:
+                continue
+            value_cols = [a for a in selected_analytes if a in df_rxn.columns]
+            if not value_cols:
+                continue
+            long_rxn = (
+                df_rxn.melt(
+                    id_vars=["time", "Reaction"],
+                    value_vars=value_cols,
+                    var_name="reactant",
+                    value_name="value",
+                )
+                .dropna(subset=["time", "value"])
+                .copy()
+            )
+            long_rxn["time"] = pd.to_numeric(long_rxn["time"], errors="coerce")
+            long_rxn["value"] = pd.to_numeric(long_rxn["value"], errors="coerce")
+            long_rxn = long_rxn.dropna(subset=["time", "value"])
+            if long_rxn.empty:
+                continue
             df_rate_by_rxn[rxn] = (
-                df_rxn.pivot_table(
-                    index="time", columns="reactant", values="peak_ap", aggfunc="mean"
+                long_rxn.pivot_table(
+                    index="time", columns="reactant", values="value", aggfunc="mean"
                 )
                 .reset_index()
                 .sort_values("time")
             )
+        else:
+            df_rxn = df_plot[df_plot["reaction"].astype(str) == str(rxn)]
+            if not df_rxn.empty:
+                df_rate_by_rxn[rxn] = (
+                    df_rxn.pivot_table(
+                        index="time", columns="reactant", values="peak_ap", aggfunc="mean"
+                    )
+                    .reset_index()
+                    .sort_values("time")
+                )
 
     # ---- Rate Summary ----
     st.write("### Rate Summary")
@@ -462,7 +536,7 @@ if not is_preprocessed:
                         fig.update_layout(
                             title=f"{analyte} - Reaction {rxn}",
                             xaxis_title=f"Time ({time_unit})",
-                            yaxis_title=selected_measurements,
+                            yaxis_title=y_measure_label,
                             width=400,
                             height=250,
                         )
@@ -481,7 +555,7 @@ if not is_preprocessed:
                             "profile_type": profile_type,
                             "fig": fig,
                             "rate_table": rate_table,
-                            "selected_measurements": selected_measurements,
+                            "selected_measurements": y_measure_label,
                             "single_df": single_df,
                             "t_fine": t_fine.tolist(),
                             "y_fit": y_fit.tolist(),
@@ -557,6 +631,7 @@ if not is_preprocessed:
                         )
             st.divider()
 
+    #if not is_preprocessed:
     st.divider()
     st.subheader("Export Report")
     try:
@@ -578,20 +653,23 @@ if not is_preprocessed:
     except Exception as e:
         st.warning(f"PDF export unavailable: {e}")
 
-    st.divider()
-    st.subheader("Download data file")
-    st.caption(
-        "HPLC data file after **add_loading_data_info** (experiment conditions, reaction, time merged in)."
-    )
-    _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-    _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
-    _merged_csv = df_after_add_loading.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download processed data (.csv)",
-        data=_merged_csv,
-        file_name=f"{_stem}_processed.csv",
-        mime="text/csv",
-        use_container_width=True,
-        type="primary",
-        key="chemstation_download_processed_csv",
-    )
+    if not is_preprocessed:
+        st.divider()
+        st.subheader("Download Processed Data File")
+        st.caption(
+            "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
+        )
+        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
+        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+        download_df = format_download_columns(df_after_add_loading)
+        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            "Download processed data (.csv)",
+            data=_merged_csv,
+            file_name=f"{_stem}_processed.csv",
+            mime="text/csv",
+            use_container_width=True,
+            type="primary",
+            key="chemstation_download_processed_csv",
+        )

@@ -19,13 +19,13 @@ st.markdown("""
 
 st.logo(image='assets/Merck_Logo.png')
 
-larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize plates, and analyze peak areas")
+larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize reaction plots, and calculate initial rates.")
 
 st.markdown("<div style='height: 4rem;'></div>", unsafe_allow_html=True)
 
 # Let's Get Started banner + help in corner
 SLIDES_DIR = Path(__file__).parent / "assets"
-instruction_images = ["Initial_input.png", "Kinetics.png", "Unit_Conversions.png"]
+instruction_images = ["Initial_input.png", "Kinetics_main_plot.png", "Kinetics_initial_rate.png", "Unit_Conversions.png"]
 instruction_paths = [SLIDES_DIR / f for f in instruction_images if (SLIDES_DIR / f).exists()]
 
 col_left, col_banner, col_help = st.columns([1.5, 17, 1.5])
@@ -59,6 +59,22 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
+st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="primary"] {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+    color: white !important;
+    font-size: 1.15rem !important;
+    padding: 0.6rem 1.2rem !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    background-color: #222222 !important;
+    border-color: #222222 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 _, col_cta, _ = st.columns([1, 2, 1])
 with col_cta:
     if st.button(
@@ -76,7 +92,8 @@ about_main_body("""This app is designed to streamline and automate the process o
          <li>Generating plate layouts from reaction conditions</li>
          <li>Graphing Peak Area over Time</li>
          <li>Graphing Peak Area Percent over Time</li>
-         <li>Calculating initial rates</li>
+         <li>Calculating initial rates </li>
+         <li>Graphing exponential fit of reactions</li>
          <li>Downloading plots as PNGs</li>
          <li>Unit conversion</li>
        </ul>""")

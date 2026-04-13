@@ -3,10 +3,28 @@ Parse kinetics data from CSV and Excel (ChemStation) files.
 Excel support requires openpyxl (for .xlsx) and xlrd (for .xls).
 """
 
+import re
+
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
 from src.parsing.add_loading_data_info import add_loading_data_info
 from src.parsing.standardize import standardize_data
 from src.parsing.parsing_hplc_files import process_first_line, process_data
+
+
+def format_download_columns(df):
+    """
+    Return a copy of df with cleaned column names for exports.
+    """
+    df = df.copy()
+    formatted = []
+    for c in df.columns:
+        label = str(c).strip()
+        label = label.replace("__", " - ")
+        label = label.replace("_", " ")
+        label = re.sub(r"\s+", " ", label).strip()
+        formatted.append(label.capitalize())
+    df.columns = formatted
+    return df
 
 
 def process_streamlit(cat_df, hplc_data):
@@ -34,6 +52,7 @@ def process_streamlit(cat_df, hplc_data):
     df = process_data(hplc_data)
     df = add_loading_data_info(df, cat_df)
     df_after_add_loading = df.copy()
+    df_after_add_loading = format_download_columns(df_after_add_loading)
     df = standardize_data(df)
     return df, df_after_add_loading, first_line
 

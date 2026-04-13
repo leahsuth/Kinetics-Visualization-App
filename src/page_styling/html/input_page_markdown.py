@@ -73,17 +73,17 @@ and want the app to tie experiments to a **conditions** spreadsheet.
 - You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
 - You map reactions, wells, and timepoints, and can use the **plate editor**.
 
-**Preprocessed** — Use this when you already have a **single table** of kinetics that is
+**Processed** — Use this when you already have a **single table** of kinetics that is
 **ready to plot** (time column + one column per analyte).
 
 - You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
 - Reactions are inferred from the file (e.g. when time resets between runs).
-- Open **How preprocessed files should look** below for an example table layout.
+- Open **How processed files should look** below for an example table layout.
 """
         )
 
 def preprocessed_file_example():
-    with st.expander("How preprocessed files should look (example table)", expanded=False):
+    with st.expander("How processed files should look (example table)", expanded=False):
         st.markdown(
             """
 This table should only contain ONE measurement type.Use a **wide** table: one row per timepoint per sample, **one column for time**, and **one column per analyte**

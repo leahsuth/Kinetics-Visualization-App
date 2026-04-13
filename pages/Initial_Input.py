@@ -41,17 +41,15 @@ input_page_markdown.input_page_setup()
 input_page_markdown.setup_header()
 
 st.session_state.setdefault("experiment_setup", {})
-st.session_state.setdefault("show_plate_modal", True)
 
 source_choice = st.selectbox(
     "Select data source type",
-    ("ChemStation", "Preprocessed"),
+    ("ChemStation", "Processed"),
     index=None,
-    help="Choose ChemStation for data directly from ChemStation, or Preprocessed for ready-to-plot data.",
+    help="Choose ChemStation for data directly from ChemStation, or Processed for ready-to-plot data.",
 )
 
 input_page_markdown.data_source_help_text()
-input_page_markdown.preprocessed_file_example()
 
 
 def excel_template_bytes() -> bytes:
@@ -111,72 +109,69 @@ if source_choice == "ChemStation" and uploaded is not None:
 
     input_page_markdown.step_label(2, "Review & Configure")
 
-    with st.container(border=True):
-        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
-        st.session_state["show_plate_modal"] = st.toggle(
-            "Enable", value=bool(st.session_state["show_plate_modal"])
-        )
-        if cond_cols:
-            st.caption(f"Condition columns detected: {', '.join(cond_cols)}")
-
-    show_plate = st.radio(
-        "Generate plate map?",
-        ["Yes", "No"],
-        index=1,
-        horizontal=True,
-        key="generate_plate_map",
-        help="If Yes, open Review & Configure to edit the plate map.",
-    )
-
-    # Parsed condition columns; default color is a condition.
-    color_choices = ["Reaction"] + cond_cols
-    _fp = tuple(cond_cols)
-    if st.session_state.get("_excel_cond_cols_fp") != _fp:
-        st.session_state["_excel_cond_cols_fp"] = _fp
-        st.session_state.pop("excel_color_by", None)
-
-    _default_field = default_plate_color_field(cond_cols)
-    if st.session_state.get("excel_color_by") not in color_choices:
-        st.session_state["excel_color_by"] = _default_field
-
-    color_by = st.selectbox(
-        "Color wells by",
-        color_choices,
-        key="excel_color_by",
-    )
-
-    if show_plate == "Yes":
-        st.markdown(
-            "<div class='step-row'>"
-            "<span class='step-badge'>2</span>"
-            "<span class='step-title'>Review & Configure</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
     with st.expander("Preview reaction table", expanded=False):
         st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
 
-    if show_plate == "Yes" and st.session_state["show_plate_modal"]:
-        base_info = build_well_info(reaction_rows, cond_cols)
-        with st.container(border=True):
-            well_info_excel = render_plate_editor_modal(
-                base_info,
-                title="Plate Map",
-                key_prefix="excel_plate",
-                n_items=len(reaction_rows),
-                color_by=color_by,
+    with st.container(border=True):
+        st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
+        if cond_cols:
+            st.write(f"Condition columns detected: {', '.join(cond_cols)}")
+        
+        with st.container(horizontal=True, gap="large", vertical_alignment="center"):
+            show_plate = st.toggle(
+                "Generate plate map?",
+                key="generate_plate_map",
+                help="If Yes, open Review & Configure to edit the plate map.",
             )
-            st.session_state["excel_plate_well_info"] = well_info_excel
-            svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
-            st.download_button(
-                "Download plate image (.png)",
-                data=_svg_to_png(svg),
-                file_name="plate_map.png",
-                mime="image/png",
-                use_container_width=True,
-                key="excel_dl_png",
+
+            # Parsed condition columns; default color is a condition.
+            color_choices = ["Reaction"] + cond_cols
+            _fp = tuple(cond_cols)
+            if st.session_state.get("_excel_cond_cols_fp") != _fp:
+                st.session_state["_excel_cond_cols_fp"] = _fp
+                st.session_state.pop("excel_color_by", None)
+
+            _default_field = default_plate_color_field(cond_cols)
+            if st.session_state.get("excel_color_by") not in color_choices:
+                st.session_state["excel_color_by"] = _default_field
+
+            color_by = st.selectbox(
+                "Color wells by",
+                color_choices,
+                key="excel_color_by",
+                disabled=not(show_plate),
+                width=300
             )
+
+
+    if show_plate:
+        has_wells = any(str(r.get("Reaction_Well", "")).strip() for r in reaction_rows)
+        if not has_wells:
+            st.warning(
+                "No plate well data found. Add a **Reaction_Well** column to your "
+                "conditions file (e.g. A1, B3) to enable the plate visualization.",
+                icon="⚠️",
+            )
+        else:
+            base_info = build_well_info(reaction_rows, cond_cols)
+            with st.container(border=True):
+                well_info_excel = render_plate_editor_modal(
+                    base_info,
+                    title="Plate Map",
+                    key_prefix="excel_plate",
+                    n_items=len(reaction_rows),
+                    color_by=color_by,
+                )
+                st.session_state["excel_plate_well_info"] = well_info_excel
+                svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
+                st.download_button(
+                    "Download plate image (.png)",
+                    data=_svg_to_png(svg),
+                    file_name="plate_map.png",
+                    mime="image/png",
+                    use_container_width=True,
+                    key="excel_dl_png",
+                )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     input_page_markdown.step_label(3, "Save & Proceed")
 
@@ -208,17 +203,18 @@ if source_choice == "ChemStation" and uploaded is not None:
             st.session_state["cat_loading_df"] = annotated_df
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
-if source_choice == "Preprocessed":
-    input_page_markdown.step_label(1, "Upload Files")
+if source_choice == "Processed":
+    input_page_markdown.preprocessed_file_example()
 
     col_pre, col_meas = st.columns(2, gap="large")
 
     with col_pre:
+        input_page_markdown.step_label(1, "Upload Files")
         with st.container(border=True):
-            st.markdown("<div class='upload-card-label'>Preprocessed Data</div>", unsafe_allow_html=True)
+            st.markdown("<div class='upload-card-label'>Processed Data</div>", unsafe_allow_html=True)
             st.caption("CSV or Excel with time and analyte columns (see Kinetics page).")
             pre_file = st.file_uploader(
-                "Upload preprocessed data (.csv or .xlsx)",
+                "Upload processed data (.csv or .xlsx)",
                 type=["csv", "xlsx"],
                 key="preprocessed_uploader",
                 label_visibility="collapsed",
@@ -231,6 +227,7 @@ if source_choice == "Preprocessed":
                 st.info(f"Using: {st.session_state['preprocessed_file_name']}")
 
     with col_meas:
+        input_page_markdown.step_label(2, "Update Measurement Type")
         with st.container(border=True):
             st.markdown("<div class='upload-card-label'>Measurement label</div>", unsafe_allow_html=True)
             st.caption("Used for plot axes (e.g. Concentration, Area %).")
@@ -245,17 +242,11 @@ if source_choice == "Preprocessed":
     preprocessed_ready = bool(st.session_state.get("preprocessed_file_bytes"))
     if not preprocessed_ready:
         st.info(
-            "Upload a preprocessed CSV or XLSX file above, then save setup to continue.",
+            "Upload a processed CSV or XLSX file above, then save setup to continue.",
             icon="👇",
         )
 
-    st.markdown(
-        "<div class='step-row'>"
-        "<span class='step-badge'>2</span>"
-        "<span class='step-title'>Save & Proceed</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    input_page_markdown.step_label(3, "Save & Proceed")
 
     save_preprocessed = st.button(
         "Save setup",
@@ -266,9 +257,7 @@ if source_choice == "Preprocessed":
     )
 
     if save_preprocessed:
-        preprocessed_df = None
         file_bytes = st.session_state.get("preprocessed_file_bytes")
-        file_name = st.session_state.get("preprocessed_file_name", "preprocessed_data.csv")
         preprocessed_df = process_preprocessed_data(file_bytes)
         st.session_state["PREPROCESSED_DATA_DF"] = preprocessed_df
 
@@ -278,7 +267,7 @@ if source_choice == "Preprocessed":
             "condition_columns": [],
             "reaction_rows": [2],
             "reactions": [1],
-            "well_info": {},
+            "well_info": st.session_state.get("preprocessed_plate_well_info", {}),
             "color_by": "Reaction",
         }
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")

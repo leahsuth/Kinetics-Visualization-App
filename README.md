@@ -4,6 +4,7 @@ A containerized Streamlit web application designed to automate visualization and
 
 ## Project Purpose
 This application aims to:
+
 - Automate parsing of HPLC output data
 - Standardize kinetic data visualization
 - Calculate & visualize initial rate of reaction
@@ -18,20 +19,19 @@ The application runs inside a Podman container to ensure consistent execution ac
 ### Dependencies
 
 The following packages are installed within the container:
+
 - pandas
 - streamlit
-- seaborn
 - matplotlib
 - plotly
 - openpyxl
 - pytest
 - numpy
-- scikit-learn
-- cairosvg
-- Pillow
+- scipy
 - fpdf2
   
 Container runtime:
+
 - Podman
 
 ## System Requirements
@@ -42,17 +42,21 @@ Container runtime:
 ### Running: Opening Streamlit UI
 
 This program requires Podman to run. To view the current UI, run the following commands:
-1. Navigate to project directory 
+
+1. Navigate to project directory
+
 ```bash
 cd MERCK-1-26-Team-main
 ```
 
-2. Build podman image 
+2. Build podman image
+
 ```bash
 ./build_image.sh
 ```
 
-3. Run container 
+3. Run container
+
 ```bash
 ./run_image.sh
 ```

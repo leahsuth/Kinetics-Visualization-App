@@ -13,3 +13,7 @@ with tab1:
     main_concentration_widget()
 with tab2:
     dilution_widget()
+with tab3:
+    st.write("Coming soon! :grin:")
+with tab4:
+    st.write("Coming soon! :grin:")

@@ -18,7 +18,7 @@ def volume_calc(mass, mw, conc):
 def concentration_from_mass_and_volume_widget():
     main_body = st.container(border=True, horizontal=False, width=900)
     main_body.markdown("## Concentration from Mass & Volume")
-    main_body.markdown("***")
+    main_body.divider()
     with main_body:
         sub_body = st.container(border=False, gap="large", horizontal=True)
         with sub_body:
@@ -35,7 +35,7 @@ def concentration_from_mass_and_volume_widget():
 def mass_from_volume_and_concentration_widget():
     main_body = st.container(border=True, horizontal=False, width=900)
     main_body.markdown("## Mass from Volume and Concentration")
-    main_body.markdown("***")
+    main_body.divider()
     with main_body:
         sub_body = st.container(border=False, gap="large", horizontal=True)
         with sub_body:
@@ -52,8 +52,8 @@ def mass_from_volume_and_concentration_widget():
 
 def volume_from_mass_and_concentration_widget():
     main_body = st.container(border=True, horizontal=False, width=900)
-    main_body.markdown("## Mass from Volume and Concentration")
-    main_body.markdown("***")
+    main_body.markdown("## Volume from Mass and Concentration")
+    main_body.divider()
     with main_body:
         sub_body = st.container(border=False, gap="large", horizontal=True)
         with sub_body:

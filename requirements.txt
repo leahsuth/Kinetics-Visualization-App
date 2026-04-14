@@ -1,12 +1,9 @@
 pandas
 streamlit
-seaborn
 matplotlib
 plotly
 openpyxl
 pytest
 numpy
-scikit-learn
-cairosvg
-Pillow
+scipy
 fpdf2

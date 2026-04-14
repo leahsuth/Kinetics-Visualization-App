@@ -9,6 +9,7 @@ def profile_picker(C0: float, Ce: float):
     else:
         return 'growth'
 
+
 def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True, k_input=None):
     analyte = st.selectbox('Select an Analyte', analytes, index=None)
     disable = analyte == None

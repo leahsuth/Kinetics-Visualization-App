@@ -9,7 +9,7 @@ import streamlit as st
 
 from src.page_styling.html import input_page_markdown
 from src.page_styling.plate_selector import (
-    generate_plate_svg,
+    generate_plate_png,
     render_plate_editor_modal,
 )
 from src.page_styling.upload_files.file_uploader_buttons import (
@@ -24,7 +24,6 @@ from src.parsing.input_page.plate_setup import (
     finalize_setup,
 )
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
-from src.utils.png_utils import _svg_to_png
 from src.parsing.process_preprocessed_data import process_preprocessed_data
 
 
@@ -163,10 +162,10 @@ if source_choice == "ChemStation" and uploaded is not None:
                     color_by=color_by,
                 )
                 st.session_state["excel_plate_well_info"] = well_info_excel
-                svg = generate_plate_svg(well_info_excel, color_by, len(reaction_rows))
+                plate_png = generate_plate_png(well_info_excel, color_by, len(reaction_rows))
                 st.download_button(
                     "Download plate image (.png)",
-                    data=_svg_to_png(svg),
+                    data=plate_png,
                     file_name="plate_map.png",
                     mime="image/png",
                     use_container_width=True,

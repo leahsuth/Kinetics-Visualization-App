@@ -39,14 +39,14 @@ def dilution_widget():
             stock_conc = st.number_input("Stock Concentration", min_value=0.001, value=100.0)
             target_conc = st.number_input("Target Concentration", min_value=0.0001, value=1.0)
         with col2:
-            num_steps = st.number_input("Number of Dilutions (Steps)", min_value=1, value=5)
+            num_steps = st.number_input("Number of Dilutions (Steps)", min_value=1)
             total_vol = st.number_input("Total Volume per intermediate", min_value=0.1, value=10.0)
 
         results = st.container(horizontal=True)
 
         with results:
-            calc = st.button("Calculate Scheme")
-            clear = st.button("Clear")
+            calc = st.button("Calculate Scheme", type="primary")
+            clear = st.button("Clear", type="secondary")
 
         if calc:
             df_results = calculate_serial_dilution(stock_conc, target_conc, num_steps, total_vol)
@@ -54,10 +54,8 @@ def dilution_widget():
             if df_results is not None:
                 st.divider()
                 st.subheader("Dilution Scheme")
-                # Using st.dataframe for a clean, sortable table
                 st.dataframe(df_results, use_container_width=True, hide_index=True)
                 
-                # Summary metrics
                 st.info(f"Required Dilution Factor per step: **{round((stock_conc/target_conc)**(1/num_steps), 2)}x**")
 
         if clear:

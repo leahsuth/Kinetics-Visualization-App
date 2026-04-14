@@ -1,26 +1,79 @@
+body {
 
-/* Target all buttons in the app */
-div.stButton > button {
-    border-radius: 50% !important; /* Make it a circle */
-    width: 50px !important;       /* Fixed width */
-    height: 50px !important;      /* Fixed height */
-    padding: 0px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;    /* Smooth color transition */
 }
 
-/* Hover effect: Turns blue */
-div.stButton > button:hover {
-    background-color: #007BFF !important; /* Blue background */
-    color: white !important;             /* White text on hover */
-    border-color: #0056b3 !important;
-    transform: scale(1.1);               /* Subtle grow effect */
+.larger-banner{
+  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  color: white;
+  padding: 1rem;
+  margin: 0 -1rem 4rem -1rem;
+  text-align: center;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,122,115,0.2);
 }
 
-/* Optional: Style for the 'selected' state if using primary type */
-div.stButton > button[kind="primary"] {
-    background-color: #28a745 !important; /* Green for selected */
+.larger-banner h1 {
+  margin: 0; 
+  font-size: 3.0rem; 
+  font-weight: 700; 
+  letter-spacing: -0.02em;
+}
+
+.larger-banner p {
+  margin: 0.5rem 0 0; 
+  font-size: 2.0rem; 
+  opacity: 0.9;
+}
+
+.block-container { max-width: 98%; }
+
+.about-banner {
+  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  color: white;
+  padding: 10px 40px;
+  margin: 0 auto 1rem;
+  width: 85%;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,122,115,0.2);
+}
+
+.about-banner h1 {
+  margin: 0; font-size: 25px; font-weight: 700;
+}
+
+.about-main-body {
+  background: white;
+  color: black;
+  padding: 0.5rem 0.9rem;
+  margin: 0 auto 1rem;
+  width: 85%;
+  text-align: left;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 6px rgba(0,122,115,0.2);
+}
+
+
+.about-content {
+  margin: 0; font-size: 20px;
+}
+
+.about-content ul {
+  list-style-type: disc;
+  font-size: 18px;
+}
+
+
+div[data-testid="stButton"] button[kind="primary"] {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
     color: white !important;
+    font-size: 1.15rem !important;
+    padding: 0.6rem 1.2rem !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    background-color: #222222 !important;
+    border-color: #222222 !important;
 }

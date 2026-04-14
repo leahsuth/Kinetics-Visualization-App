@@ -11,17 +11,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-    <style>
-    .block-container { max-width: 98%; }
-    </style>
-    """, unsafe_allow_html=True)
+with open("index.css", "r") as file:
+    css = file.read()
+
+st.html(f"<style>{css}</style>")
+
 
 st.logo(image='assets/Merck_Logo.png')
 
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize reaction plots, and calculate initial rates.")
 
-st.markdown("<div style='height: 4rem;'></div>", unsafe_allow_html=True)
 
 # Let's Get Started banner + help in corner
 SLIDES_DIR = Path(__file__).parent / "assets"
@@ -32,7 +31,7 @@ col_left, col_banner, col_help = st.columns([1.5, 17, 1.5])
 with col_left:
     st.empty()
 with col_banner:
-    about_banner("Let's Get Started!", full_width=True)
+    about_banner("Let's Get Started!")
 with col_help:
     st.markdown("<div style='height: 0.25rem;'></div>", unsafe_allow_html=True)
     with st.popover("?", help="Click for instructions"):
@@ -59,21 +58,6 @@ with col_help:
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
 
-st.markdown("""
-<style>
-div[data-testid="stButton"] button[kind="primary"] {
-    background-color: #000000 !important;
-    border-color: #000000 !important;
-    color: white !important;
-    font-size: 1.15rem !important;
-    padding: 0.6rem 1.2rem !important;
-}
-div[data-testid="stButton"] button[kind="primary"]:hover {
-    background-color: #222222 !important;
-    border-color: #222222 !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 _, col_cta, _ = st.columns([1, 2, 1])
 with col_cta:
@@ -87,13 +71,4 @@ with col_cta:
 
 about_banner("About")
 
-about_main_body("""This app is designed to streamline and automate the process of visualizing and analyzing kinetic data from HPLC experiments. Currently, it supports the following features:<br><br>
-       <ul style="text-align: left; display: inline-block; margin: 0.5rem 0 0;">
-         <li>Generating plate layouts from reaction conditions</li>
-         <li>Graphing Peak Area over Time</li>
-         <li>Graphing Peak Area Percent over Time</li>
-         <li>Calculating initial rates </li>
-         <li>Graphing exponential fit of reactions</li>
-         <li>Downloading plots as PNGs</li>
-         <li>Solving common laboratory calculations</li>
-       </ul>""")
+about_main_body()

@@ -9,7 +9,8 @@ from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.parsing.plotting_process import plot_process
-from src.regression.rate_calculation import rate_calculation, fit_kinetics_and_return_params, exp_func
+from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
+from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
 from src.page_styling.report_generator import generate_report_pdf
 
 st.logo(image='assets/Merck_Logo.png')
@@ -360,19 +361,33 @@ if True:
         st.session_state["kinetics_clear_counter"] = 0
 
     def build_rate_summary(df_pivot: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
-        """Calculate rate for each analyte and return summary DataFrame."""
+        """Calculate rate for each analyte (same bounded fit as Rate Plots)."""
         rows = []
         for analyte in analytes:
             if analyte not in df_pivot.columns:
                 rows.append({"Analyte": analyte, "Rate": None})
                 continue
-            C0 = df_pivot[analyte].iloc[0]
-            Ce = df_pivot[analyte].iloc[-1]
+            single_df = (
+                df_pivot[["time", analyte]]
+                .copy()
+                .dropna(subset=["time", analyte])
+                .sort_values("time")
+            )
+            if len(single_df) < 3:
+                rows.append({"Analyte": analyte, "Rate": None})
+                continue
+            C0 = single_df[analyte].iloc[0]
+            Ce = single_df[analyte].iloc[-1]
             profile_type = profile_picker(C0, Ce)
-            try:
-                r = rate_calculation(df_pivot, analyte, C0, Ce, k, profile_type)
-            except Exception:
-                r = None
+            out = kinetics_fit_initial_rate(
+                single_df,
+                analyte,
+                k,
+                profile_type,
+                float(C0),
+                float(Ce),
+            )
+            r = out[0] if out else None
             rows.append({"Analyte": analyte, "Rate": r})
         return pd.DataFrame(rows)
 
@@ -495,21 +510,16 @@ if True:
                     )
                 else:
                     profile_type = default_profile
-                result = fit_kinetics_and_return_params(
-                    single_df, analyte, C0_init, Ce_init, k_constant, profile_type
-                )
-                if result is not None:
-                    C0, Ce, k_fit = result[0], result[1], result[2]
+                out = kinetics_fit_initial_rate(
+                    single_df, analyte, k_constant, profile_type, C0_init, Ce_init)
+                if out is not None:
+                    rate_val, C0, Ce, k_fit = out
                     t_fine = np.linspace(
                         float(single_df["time"].min()),
                         float(single_df["time"].max()),
                         100,
                     )
                     y_fit = exp_func(C0, Ce, k_fit, t_fine, profile_type)
-                    if profile_type == "growth":
-                        rate_val = (Ce - C0) * k_fit
-                    else:
-                        rate_val = C0 * k_fit
 
                     plot_key = (rxn, analyte, profile_type)
                     already_exists = any(
@@ -566,6 +576,13 @@ if True:
             h for h in st.session_state["kinetics_plot_history"]
             if (h["reaction"], h["analyte"]) in chosen_rxn_analytes
         ]
+
+    sync_kinetics_plot_history(
+        st.session_state["kinetics_plot_history"],
+        k_constant,
+        time_unit,
+        y_measure_label,
+    )
 
     # ---- Display fit plot history ----
     if "kinetics_remove_idx" not in st.session_state:

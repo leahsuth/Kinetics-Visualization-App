@@ -49,54 +49,6 @@ def residuals(p, Cexp, t, profile_type):
     return res
 
 
-def rate_calculation(
-    df: pd.DataFrame,
-    analyte: str,
-    C0: float,
-    Ce: float,
-    k: float,
-    profile_type: str,
-):
-    """Function to calculate reaction rate
-    Args:
-        df (pd.DataFrame): dataframe containing experimental data
-        analyte (str): analyte to calculate rate of
-        C0 (float): initial concentration of analyte
-        Ce (float): saturation concentration at t=inf
-        k (float): rate constant
-        profile_type (str): "growth" or "decay"
-    Returns:
-        rate: calculated reaciton rate
-    """
-    if analyte not in df.columns:
-        raise ValueError(f"Analyte {analyte} not present in dataframe")
-
-    if profile_type not in ["growth", "decay"]:
-        raise ValueError(f"profile_type: {profile_type} is not a valid setting")
-
-    if k <= 0:
-        raise ValueError(f"Invalid value of k: {k}, must be greater than zero")
-
-    experimental = df[analyte]
-    time = df["time"]
-    initial_guess = (C0, Ce, k)
-
-    result = least_squares(
-        residuals, initial_guess, args=(experimental, time, profile_type)
-    )
-
-    opt_params = result.x  # optimized parameters
-    par = {
-        "C0": opt_params[0],
-        "Ce": opt_params[1],
-        "k": opt_params[2],
-    }
-    # initial rate at t=0: dC/dt = k*(Ce-C0)
-    # positive for growth (Ce > C0), negative for decay (Ce < C0)
-    rate = par['k'] * (par['Ce'] - par['C0'])
-
-    return rate
-
 def fit_kinetics_and_return_params(
     df: pd.DataFrame,
     analyte: str,
@@ -146,3 +98,73 @@ def fit_kinetics_and_return_params(
 
     opt = result.x
     return (float(opt[0]), float(opt[1]), float(opt[2]), profile_type)
+
+
+def kinetics_fit_initial_rate(
+    df: pd.DataFrame,
+    analyte: str,
+    k: float,
+    profile_type: str,
+    c0_init: float,
+    ce_init: float,
+):
+    """Fit ``df``. Returns ``(rate, C0, Ce, k_fit)`` or ``None`` if the fit fails.
+    """
+    if len(df) < 3:
+        return None
+
+    result = fit_kinetics_and_return_params(
+        df,
+        analyte,
+        float(c0_init),
+        float(ce_init),
+        float(k),
+        profile_type,
+    )
+
+    if result is None or isinstance(result, str):
+        return None
+
+    C0 = float(result[0])
+    Ce = float(result[1])
+    k_fit = float(result[2])
+    rate = k_fit * (Ce - C0)
+    return (rate, C0, Ce, k_fit)
+
+
+def rate_calculation(
+    df: pd.DataFrame,
+    analyte: str,
+    C0: float,
+    Ce: float,
+    k: float,
+    profile_type: str,
+):
+    """Function to calculate reaction rate
+    Args:
+        df (pd.DataFrame): dataframe containing experimental data
+        analyte (str): analyte to calculate rate of
+        C0 (float): initial concentration of analyte
+        Ce (float): saturation concentration at t=inf
+        k (float): rate constant
+        profile_type (str): "growth" or "decay"
+    Returns:
+        rate: calculated reaciton rate
+    """
+    if analyte not in df.columns:
+        raise ValueError(f"Analyte {analyte} not present in dataframe")
+
+    if profile_type not in ["growth", "decay"]:
+        raise ValueError(f"profile_type: {profile_type} is not a valid setting")
+
+    if k <= 0:
+        raise ValueError(f"Invalid value of k: {k}, must be greater than zero")
+
+    df = (df[["time", analyte]].copy().dropna(subset=["time", analyte]).sort_values("time")
+    )
+    output = kinetics_fit_initial_rate(df, analyte, k, profile_type, float(C0), float(Ce)
+    )
+    if output is None:
+        raise ValueError("Kinetics fit failed (need ≥3 valid time/concentration points)"
+        )
+    return output[0]

@@ -4,7 +4,10 @@ import math
 import hashlib
 import string
 from typing import Dict, Tuple, Optional, List
+from io import BytesIO
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -136,8 +139,8 @@ def _edit_well_dialog(well_id: str, info: Dict[str, dict], key_prefix: str) -> N
             st.rerun()
 
 
-def generate_plate_svg(info: Dict[str, dict], color_by: str, n_items: int) -> str:
-    """Return an SVG string of the plate map, suitable for download."""
+def generate_plate_png(info: Dict[str, dict], color_by: str, n_items: int) -> bytes:
+    """Generate plate map as PNG bytes using matplotlib, suitable for download."""
     wells = sorted(info.keys(), key=lambda w: (_well_to_rc(w) or (99, 99)))
     num_rows, num_cols = compute_plate_dims(max(1, int(n_items)), wells_hint=wells)
     rows = list_of_letters(num_rows)
@@ -150,38 +153,54 @@ def generate_plate_svg(info: Dict[str, dict], color_by: str, n_items: int) -> st
     W = pad * 2 + lw + num_cols * cell
     H = pad * 2 + lh + num_rows * cell
 
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}">',
-        f'<rect width="{W}" height="{H}" fill="#ffffff" rx="8"/>',
-    ]
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=100)
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    ax.invert_yaxis()
+    ax.axis('off')
 
+    # Draw background
+    rect = patches.FancyBboxPatch((0, 0), W, H, boxstyle="round,pad=1", 
+                                   edgecolor='gray', linewidth=2, facecolor='white')
+    ax.add_patch(rect)
+
+    # Draw column numbers
     for j, c in enumerate(cols):
         x = pad + lw + j * cell + cell // 2
         y = pad + lh // 2
-        parts.append(f'<text x="{x}" y="{y}" text-anchor="middle" dominant-baseline="middle" '
-                     f'font-family="Arial" font-size="13" fill="#999">{c}</text>')
+        ax.text(x, y, str(c), ha='center', va='center', fontsize=9, color='#666')
 
+    # Draw rows and wells
     for i, r in enumerate(rows):
         rx = pad + lw // 2
         ry = pad + lh + i * cell + cell // 2
-        parts.append(f'<text x="{rx}" y="{ry}" text-anchor="middle" dominant-baseline="middle" '
-                     f'font-family="Arial" font-size="13" fill="#999">{r}</text>')
+        ax.text(rx, ry, r, ha='center', va='center', fontsize=9, color='#666')
 
         for j, c in enumerate(cols):
             well_id = f"{r}{c}"
             d = info.get(well_id, {})
             custom = str(d.get("_custom_color") or "").strip()
             color = custom if (custom and custom != "#EDEDED") else value_to_color(str(d.get(color_by, "") or "").strip()) if well_id in info else "#ebebeb"
+            
             cx = pad + lw + j * cell + cell // 2
             cy = pad + lh + i * cell + cell // 2
             r_circ = cell // 2 - 4
-            parts.append(f'<circle cx="{cx}" cy="{cy}" r="{r_circ}" fill="{color}" stroke="rgba(0,0,0,0.15)" stroke-width="1.2"/>')
-            if well_id in info:
-                parts.append(f'<text x="{cx}" y="{cy}" text-anchor="middle" dominant-baseline="middle" '
-                             f'font-family="Arial" font-size="10" font-weight="bold" fill="#333">{well_id}</text>')
 
-    parts.append('</svg>')
-    return "\n".join(parts)
+            # Draw circle
+            circle = patches.Circle((cx, cy), r_circ, facecolor=color, 
+                                   edgecolor='#ccc', linewidth=1)
+            ax.add_patch(circle)
+
+            # Draw well label if in info
+            if well_id in info:
+                ax.text(cx, cy, well_id, ha='center', va='center', 
+                       fontsize=7, fontweight='bold', color='#333')
+
+    buf = BytesIO()
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor='white', edgecolor='none')
+    buf.seek(0)
+    plt.close(fig)
+    return buf.getvalue()
 
 
 def _render_legend(info: Dict[str, dict], color_by: str) -> None:

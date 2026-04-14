@@ -14,6 +14,12 @@ from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
 from src.page_styling.report_generator import generate_report_pdf
 
 st.logo(image='assets/Merck_Logo.png')
+st.set_page_config(
+    page_title="Kinetics",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 st.write("# Kinetics Plotter")
 
 # Make all st.button(type="primary") red (does not affect st.download_button)

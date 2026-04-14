@@ -42,7 +42,13 @@ def dilution_widget():
             num_steps = st.number_input("Number of Dilutions (Steps)", min_value=1, value=5)
             total_vol = st.number_input("Total Volume per intermediate", min_value=0.1, value=10.0)
 
-        if st.button("Calculate Scheme"):
+        results = st.container(horizontal=True)
+
+        with results:
+            calc = st.button("Calculate Scheme")
+            clear = st.button("Clear")
+
+        if calc:
             df_results = calculate_serial_dilution(stock_conc, target_conc, num_steps, total_vol)
             
             if df_results is not None:
@@ -53,4 +59,7 @@ def dilution_widget():
                 
                 # Summary metrics
                 st.info(f"Required Dilution Factor per step: **{round((stock_conc/target_conc)**(1/num_steps), 2)}x**")
+
+        if clear:
+            df_results = None
 

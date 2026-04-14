@@ -22,7 +22,7 @@ def exp_func(C0, Ce, k, t, profile_type):
         return C
 
     elif profile_type == "decay":
-        C = Ce + C0 * np.exp(-k * t)
+        C = Ce + (C0 - Ce) * np.exp(-k * t)
         return C
 
     else:
@@ -91,17 +91,9 @@ def rate_calculation(
         "Ce": opt_params[1],
         "k": opt_params[2],
     }
-    # calculate rate depending on the profile type
-    t_rate = 0
-    if profile_type == 'growth':
-        rate = par['k'] * (par['Ce'] - par['C0']) # initial rate at t=0 is k*(Ce-C0)
-    else:
-        rate = par['k'] * par['C0'] # initial rate at t=0 is k*C0
-
-    #if profile_type == 'growth':
-        #rate = par['k'] * (par['Ce'] - par['C0'])*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*(Ce-C0)
-   # else:
-        #rate = par['k'] * par['C0']*np.exp(-t_rate*par['k']) # initial rate at t=0 is k*C0
+    # initial rate at t=0: dC/dt = k*(Ce-C0)
+    # positive for growth (Ce > C0), negative for decay (Ce < C0)
+    rate = par['k'] * (par['Ce'] - par['C0'])
 
     return rate
 
@@ -136,9 +128,9 @@ def fit_kinetics_and_return_params(
         lb = [c_min - c_range, c_min, 1e-6]
         ub = [c_max, c_max + c_range, 20.0]
     else:
-        # Decay: C0 = amplitude (>= 0), Ce = baseline
-        lb = [0.0, c_min - c_range, 1e-6]
-        ub = [c_max + c_range, c_max + c_range, 20.0]
+        # Decay: C0 = initial (high), Ce = baseline (low): C0 > Ce
+        lb = [c_min, c_min - c_range, 1e-6]
+        ub = [c_max + c_range, c_max, 20.0]
 
     initial_guess = (float(C0), float(Ce), float(k))
 

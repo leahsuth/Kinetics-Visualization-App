@@ -1,10 +1,15 @@
-[theme]
+[theme.light]
 primaryColor = "#007A73"
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#e3e3e3"
 textColor = "#262730"
 font = "sans serif"
 buttonRadius = "large"
+
+[theme.dark]
+primaryColor = "#FF6961"
+backgroundColor = "black"
+borderColor = "#FF6961"
 
 [server]
 fileWatcherType = "poll"

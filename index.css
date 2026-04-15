@@ -5,6 +5,7 @@
 
 :root {
   --merck-color: #007A73;
+  --secondary-color: #e3e3e3;
 }
 
 .block-container { 
@@ -15,6 +16,11 @@
 code {
   color: green;
   font-size: 14px;
+}
+
+.stHorizontalBlock {
+  display: flex;
+  justify-content: center;
 }
 
 
@@ -94,12 +100,31 @@ button[kind="primary"] {
   color: white;
   font-size: 1.15rem;
   width: 400px;
+  margin-left: auto;
+  margin-right: auto;
   padding: 0.6rem 1.2rem;
   transition: all 0.4s;
 }
 button[kind="primary"]:hover {
   background-color: #222;
   width: 450px;
+}
+
+button[kind="secondary"] {
+  background-color: var(--secondary-color);
+  border: solid black 1px;
+  color: #262730;
+  font-size: 1.15rem;
+  width: 200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.6rem 1.2rem;
+  transition: all 0.4s;
+}
+button[kind="secondary"]:hover {
+  background-color: #222;
+  color: white;
+  width: 250px;
 }
 
 /* ***************** */

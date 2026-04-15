@@ -8,7 +8,7 @@ input = st.Page("main_pages/Initial_Input.py", title="Data Upload")
 kinetics = st.Page("main_pages/Kinetics.py", title="Rate Information and Plotting")
 utilities = st.Page("main_pages/Utilities.py", title="Utilities")
 
-pages = [welcome, input, utilities] 
+pages = [welcome, utilities, input] 
 if st.session_state.experiment_setup is not None:
     pages.append(kinetics)
 

@@ -75,3 +75,22 @@ def excel_template_bytes() -> bytes:
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Experiment")
     return buf.getvalue()
+
+@st.dialog("Click for instructions", width="medium")
+def help_dialog(instruction_paths):
+    st.caption("**Instructions**")
+    if instruction_paths:
+        if "slide_idx" not in st.session_state:
+            st.session_state["slide_idx"] = 0
+        n = len(instruction_paths)
+        idx = st.session_state["slide_idx"]
+        # Put arrows on left and right of the slideshow
+        st.image(str(instruction_paths[idx]))
+        st.caption(f"{idx + 1} / {n}")
+        col_prev, col_next = st.columns(2)
+        with col_prev:
+            if st.button("◀", key="prev"):
+                st.session_state["slide_idx"] = (idx - 1) % n
+        with col_next:
+            if st.button("▶", key="next"):
+                st.session_state["slide_idx"] = (idx + 1) % n

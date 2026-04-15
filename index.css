@@ -1,4 +1,8 @@
 
+/* ***************** */
+/* welcome page */
+/* ***************** */
+
 .larger-banner{
   background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
   color: white;
@@ -68,18 +72,20 @@
 }
 
 button[kind="primary"] {
-    background-color: #000000;
-    border-color: #000000;
-    color: white;
-    font-size: 1.15rem;
-    padding: 0.6rem 1.2rem;
-    transition: background-color 2s;
+  background-color: #007A73;
+  border: solid black 1px;
+  color: white;
+  font-size: 1.15rem;
+  padding: 0.6rem 1.2rem;
+  transition: all 0.4s;
 }
 button[kind="primary"]:hover {
-    background-color: #222222;
-    border-color: #222222;
+  background-color: #222;
 }
 
+/* ***************** */
+/* kinetics page */
+/* ***************** */
 .rate-table {
   background-color: white;
   display: grid;
@@ -104,4 +110,30 @@ button[kind="primary"]:hover {
   grid-column-end: 3;
   font-weight: bold;
   font-size: 18px;
+}
+
+/* ***************** */
+/* input page */
+/* ***************** */
+
+/* .block-container { padding-top: 0; padding-bottom: 2rem; max-width: 1200px; } */
+div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
+.section-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: rgba(49,51,63,.45); margin-bottom: 4px;
+}
+.step-row {
+    display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0.4rem 0;
+}
+.step-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #007A73; color: white;
+    font-size: 0.82rem; font-weight: 700; flex-shrink: 0;
+}
+.step-title {
+    font-size: 1.05rem; font-weight: 700; color: #1f2937; margin: 0;
+}
+.upload-card-label {
+    font-size: 1rem; font-weight: 700; margin-bottom: 2px;
 }

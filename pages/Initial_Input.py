@@ -35,7 +35,10 @@ if str(ROOT) not in sys.path:
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
-input_page_markdown.input_page_setup()
+with open("index.css", "r") as file:
+    css = file.read()
+
+st.html(f"<style>{css}</style>")
 
 input_page_markdown.setup_header()
 

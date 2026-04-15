@@ -537,7 +537,6 @@ if True:
                             line=dict(color="#E53935", width=2),
                         ))
                         fig.update_layout(
-                            title=f"{analyte} - Reaction {rxn}",
                             xaxis_title=f"Time ({time_unit})",
                             yaxis_title=y_measure_label,
                             width=400,
@@ -594,14 +593,13 @@ if True:
 
     if st.session_state["kinetics_plot_history"]:
         st.divider()
-        st.write("### Generated Fit Plots")
+        st.write("# Generated Fit Plots")
 
-        hdr_col, btn_col = st.columns([3, 1])
+        hdr_col, btn_col = st.columns(2)
         with hdr_col:
-            st.caption("Clear plots to reset plotting settings and start fresh.")
+            st.markdown("## Clear plots to reset plotting settings and start fresh.")
         with btn_col:
-            if st.button("Clear all plots", key="clear_plots", type="primary",
-                         width="stretch"):
+            if st.button("Clear all plots", key="clear_plots", type="primary"):
                 st.session_state["kinetics_plot_history"] = []
                 st.session_state["kinetics_excluded_keys"] = set()
                 st.session_state["kinetics_clear_counter"] += 1
@@ -618,11 +616,6 @@ if True:
                 cols = st.columns(len(row))
                 for col, (idx, item) in zip(cols, row):
                     with col:
-                        hdr_left, hdr_right = st.columns([5, 1])
-                        with hdr_right:
-                            if st.button("✕", key=f"del_plot_{idx}", help="Remove this plot"):
-                                st.session_state["kinetics_remove_idx"] = idx
-                                st.rerun()
                         st.plotly_chart(item["fig"], width="stretch")
                         rt = item["rate_table"].iloc[0]
                         caption = f"Reaction {item['reaction']}-{analyte}"
@@ -631,7 +624,14 @@ if True:
                         rt_Ce = rt['Ce']
                         rt_k = rt['k']
                         mode = item['profile_type']
-                        rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
+                        hdr_left, hdr_right = st.columns(2)
+                        with hdr_right:
+                            clear_button = st.button("Remove this plot", key=f"del_plot_{idx}", type='primary')
+                            if clear_button:
+                                st.session_state["kinetics_remove_idx"] = idx
+                                st.rerun()
+                        with hdr_left:
+                            rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
             st.divider()
 
     #if not is_preprocessed:

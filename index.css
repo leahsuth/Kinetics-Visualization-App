@@ -23,6 +23,11 @@ code {
   justify-content: center;
 }
 
+.stButton {
+  display: flex;
+  justify-content: center;
+}
+
 
 /* ***************** */
 /* welcome page */
@@ -115,7 +120,7 @@ button[kind="secondary"] {
   border: solid black 1px;
   color: #262730;
   font-size: 1.15rem;
-  width: 200px;
+  width: 400px;
   margin-left: auto;
   margin-right: auto;
   padding: 0.6rem 1.2rem;
@@ -124,7 +129,7 @@ button[kind="secondary"] {
 button[kind="secondary"]:hover {
   background-color: #222;
   color: white;
-  width: 250px;
+  width: 450px;
 }
 
 /* ***************** */

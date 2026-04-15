@@ -3,6 +3,7 @@ import io
 import sys
 from pathlib import Path
 from typing import List, Optional, Dict
+import time
 
 import pandas as pd
 import streamlit as st
@@ -171,7 +172,6 @@ if source_choice == "ChemStation" and uploaded is not None:
                     data=plate_png,
                     file_name="plate_map.png",
                     mime="image/png",
-                    width="stretch",
                     key="excel_dl_png",
                 )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
@@ -203,8 +203,9 @@ if source_choice == "ChemStation" and uploaded is not None:
                 rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
             )
             st.session_state["cat_loading_df"] = annotated_df
-        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
-        st.rerun()
+            st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
+            time.sleep(4)
+            st.rerun()
 
 if source_choice == "Processed":
     input_page_markdown.preprocessed_file_example()
@@ -273,7 +274,9 @@ if source_choice == "Processed":
             "well_info": st.session_state.get("preprocessed_plate_well_info", {}),
             "color_by": "Reaction",
         }
-        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+        st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
+        time.sleep(4)
+        st.rerun()
 
 
 # ── Saved setup summary ────────────────────────────────────────────────────

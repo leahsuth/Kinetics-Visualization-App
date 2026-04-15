@@ -12,6 +12,7 @@ from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
 from src.page_styling.report_generator import generate_report_pdf
+from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
 
 st.logo(image='assets/Merck_Logo.png')
 st.set_page_config(
@@ -20,25 +21,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-st.write("# Kinetics Plotter")
+with open("index.css", "r") as file:
+    css = file.read()
 
-# Make all st.button(type="primary") red (does not affect st.download_button)
-st.markdown(
-    """
-    <style>
-    div[data-testid="stButton"] button[kind="primary"] {
-        background-color: #c62828 !important;
-        border-color: #c62828 !important;
-        color: white !important;
-    }
-    div[data-testid="stButton"] button[kind="primary"]:hover {
-        background-color: #b71c1c !important;
-        border-color: #b71c1c !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.html(f"<style>{css}</style>")
+st.write("# Kinetics Plotter")
 
 
 experiment_setup_meta = st.session_state.get("experiment_setup", {}) or {}
@@ -626,32 +613,25 @@ if True:
             analyte_groups[item["analyte"]].append((idx, item))
 
         for analyte, indexed_items in analyte_groups.items():
-            st.write(f"#### {analyte}")
             for i in range(0, len(indexed_items), 2):
                 row = indexed_items[i : i + 2]
                 cols = st.columns(len(row))
                 for col, (idx, item) in zip(cols, row):
                     with col:
                         hdr_left, hdr_right = st.columns([5, 1])
-                        with hdr_left:
-                            st.caption(f"Reaction {item['reaction']} ({item['profile_type']})")
                         with hdr_right:
                             if st.button("✕", key=f"del_plot_{idx}", help="Remove this plot"):
                                 st.session_state["kinetics_remove_idx"] = idx
                                 st.rerun()
                         st.plotly_chart(item["fig"], use_container_width=True)
                         rt = item["rate_table"].iloc[0]
-                        st.markdown(
-                            f"<div style='border: 2.5px solid #555; border-radius: 6px; "
-                            f"padding: 6px 10px; display: inline-block; font-size: 0.82em; "
-                            f"line-height: 1.8;'>"
-                            f"<b>Rate:</b> {rt['Rate']:.4f}<br>"
-                            f"<b>C\u2080:</b> {rt['C0']:.4f} &nbsp; "
-                            f"<b>C\u2091:</b> {rt['Ce']:.4f} &nbsp; "
-                            f"<b>k:</b> {rt['k']:.4f}"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
+                        caption = f"Reaction {item['reaction']}-{analyte}"
+                        rt_rate = rt['Rate']
+                        rt_C0 = rt['C0']
+                        rt_Ce = rt['Ce']
+                        rt_k = rt['k']
+                        mode = item['profile_type']
+                        rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
             st.divider()
 
     #if not is_preprocessed:

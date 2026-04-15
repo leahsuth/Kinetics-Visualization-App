@@ -1,12 +1,19 @@
 import streamlit as st
 
-welcome = st.Page("pages/Welcome.py", title="Welcome", default=True)
-input = st.Page("pages/Initial_Input.py", title="Initial Input")
-kinetics = st.Page("pages/Kinetics.py", title="Kinetics")
-utilities = st.Page("pages/Utilities.py", title="Utilities")
+if "experiment_setup" not in st.session_state:
+    st.session_state.experiment_setup = None
+
+welcome = st.Page("main_pages/Welcome.py", title="Welcome", default=True)
+input = st.Page("main_pages/Initial_Input.py", title="Initial Input")
+kinetics = st.Page("main_pages/Kinetics.py", title="Kinetics")
+utilities = st.Page("main_pages/Utilities.py", title="Utilities")
+
+pages = [welcome, input, utilities] 
+if st.session_state.experiment_setup is not None:
+    pages.append(kinetics)
 
 pg = st.navigation(
-    [welcome, input, kinetics, utilities],
+    pages,
     position="top"
 )
 

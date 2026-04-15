@@ -16,11 +16,11 @@ def experiment_conditions_button(
                 data=template_bytes_fn(),
                 file_name="experiment_template.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
                 key="experiment_conditions_template_dl",
             )
 
-        with st.popover("Template guide", use_container_width=True):
+        with st.popover("Template guide", width="stretch"):
             st.markdown(
                 "| Column | Required? | Notes |\n"
                 "|---|---|---|\n"

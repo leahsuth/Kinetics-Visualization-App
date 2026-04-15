@@ -65,4 +65,4 @@ def graph_from_csv(df: pd.DataFrame, analytes: list | None = None):
         )
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")

@@ -122,19 +122,19 @@ def _edit_well_dialog(well_id: str, info: Dict[str, dict], key_prefix: str) -> N
             label_visibility="collapsed",
         )
     with cc2:
-        if st.button("Reset", key=f"{key_prefix}_dlg_reset_{well_id}", use_container_width=True):
+        if st.button("Reset", key=f"{key_prefix}_dlg_reset_{well_id}", width="stretch"):
             d["_custom_color"] = "#EDEDED"
 
     st.markdown("")
     b1, b2 = st.columns(2)
     with b1:
-        if st.button("Save", type="primary", use_container_width=True, key=f"{key_prefix}_dlg_save_{well_id}"):
+        if st.button("Save", type="primary", width="stretch", key=f"{key_prefix}_dlg_save_{well_id}"):
             info[well_id] = d
             st.session_state[f"{key_prefix}_well_info"] = info
             st.session_state[f"{key_prefix}_active_well"] = None
             st.rerun()
     with b2:
-        if st.button("Cancel", use_container_width=True, key=f"{key_prefix}_dlg_cancel_{well_id}"):
+        if st.button("Cancel", width="stretch", key=f"{key_prefix}_dlg_cancel_{well_id}"):
             st.session_state[f"{key_prefix}_active_well"] = None
             st.rerun()
 

@@ -23,7 +23,7 @@ code {
 /* ***************** */
 
 .larger-banner{
-  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  background-color: var(--merck-color);
   color: white;
   padding: 1rem;
   margin: 0 -1rem 4rem -1rem;
@@ -46,7 +46,7 @@ code {
 }
 
 .about-banner {
-  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  background-color: var(--merck-color);
   color: white;
   padding: 10px 40px;
   margin: 0 auto 1rem;
@@ -89,15 +89,17 @@ code {
 }
 
 button[kind="primary"] {
-  background-color: #007A73;
+  background-color: var(--merck-color);
   border: solid black 1px;
   color: white;
   font-size: 1.15rem;
+  width: 400px;
   padding: 0.6rem 1.2rem;
   transition: all 0.4s;
 }
 button[kind="primary"]:hover {
   background-color: #222;
+  width: 450px;
 }
 
 /* ***************** */
@@ -143,10 +145,17 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
     display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0.4rem 0;
 }
 .step-badge {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%;
-    background: #007A73; color: white;
-    font-size: 0.82rem; font-weight: 700; flex-shrink: 0;
+    display: inline-flex; 
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #007A73;
+    color: white;
+    font-size: 0.82rem;
+    font-weight: 700;
+    flex-shrink: 0;
 }
 .step-title {
     font-size: 1.05rem; font-weight: 700; color: #1f2937; margin: 0;
@@ -156,7 +165,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
 }
 
 .setup-header {
-  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  background-color: var(--merck-color);
   color: white;
   padding: 1rem;
   margin: 2rem;
@@ -194,7 +203,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
 /* ***************** */
 
 .utility-header {
-  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  background-color: var(--merck-color);
   color: white;
   padding: 1rem;
   text-align: center;

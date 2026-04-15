@@ -303,7 +303,7 @@ else:
                             title_suffix=f"Reaction {rxn}",
                             time_unit=time_unit,
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
 
     remaining_reactions = [r for r in selected_reactions if r not in reactions_for_plots]
     if remaining_reactions:
@@ -315,7 +315,7 @@ else:
             chart_type=chart_type,
             time_unit=time_unit,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
@@ -444,7 +444,7 @@ if True:
             continue
         summary = build_rate_summary(df_pivot, rxn_analytes, k_constant)
         st.write(f"**Reaction {rxn}**")
-        st.dataframe(summary, use_container_width=True)
+        st.dataframe(summary, width="stretch")
         rate_summaries.append({"reaction": rxn, "summary_df": summary})
 
     # ---- Fit Plots ----
@@ -601,7 +601,7 @@ if True:
             st.caption("Clear plots to reset plotting settings and start fresh.")
         with btn_col:
             if st.button("Clear all plots", key="clear_plots", type="primary",
-                         use_container_width=True):
+                         width="stretch"):
                 st.session_state["kinetics_plot_history"] = []
                 st.session_state["kinetics_excluded_keys"] = set()
                 st.session_state["kinetics_clear_counter"] += 1
@@ -623,7 +623,7 @@ if True:
                             if st.button("✕", key=f"del_plot_{idx}", help="Remove this plot"):
                                 st.session_state["kinetics_remove_idx"] = idx
                                 st.rerun()
-                        st.plotly_chart(item["fig"], use_container_width=True)
+                        st.plotly_chart(item["fig"], width="stretch")
                         rt = item["rate_table"].iloc[0]
                         caption = f"Reaction {item['reaction']}-{analyte}"
                         rt_rate = rt['Rate']
@@ -650,7 +650,7 @@ if True:
             data=pdf_bytes,
             file_name="kinetics_report.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
             type="primary",
         )
     except Exception as e:
@@ -672,7 +672,7 @@ if True:
             data=_merged_csv,
             file_name=f"{_stem}_processed.csv",
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
             type="primary",
             key="chemstation_download_processed_csv",
         )

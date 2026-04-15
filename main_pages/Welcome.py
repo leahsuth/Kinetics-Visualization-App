@@ -45,15 +45,15 @@ with col_help:
             col_prev, col_img, col_next = st.columns([0.5, 6, 0.5])
             with col_prev:
                 st.markdown("<div style='height: 12rem;'></div>", unsafe_allow_html=True)
-                if st.button("◀", use_container_width=True, key="prev"):
+                if st.button("◀", width="stretch", key="prev"):
                     st.session_state["slide_idx"] = (idx - 1) % n
                     st.rerun()
             with col_img:
-                st.image(str(instruction_paths[idx]), use_container_width=True)
+                st.image(str(instruction_paths[idx]), width="stretch")
                 st.caption(f"{idx + 1} / {n}")
             with col_next:
                 st.markdown("<div style='height: 12rem;'></div>", unsafe_allow_html=True)
-                if st.button("▶", use_container_width=True, key="next"):
+                if st.button("▶", width="stretch", key="next"):
                     st.session_state["slide_idx"] = (idx + 1) % n
                     st.rerun()
             st.caption(f"{idx + 1} / {n}")
@@ -64,10 +64,10 @@ with col_cta:
     if st.button(
         "📈  Visualize data and initial rates →",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="cta_Initial_Input",
     ):
-        st.switch_page("pages/Initial_Input.py")
+        st.switch_page("main_pages/Initial_Input.py")
 
 about_banner("About")
 

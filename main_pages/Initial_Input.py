@@ -112,7 +112,7 @@ if source_choice == "ChemStation" and uploaded is not None:
     input_page_markdown.step_label(2, "Review & Configure")
 
     with st.expander("Preview reaction table", expanded=False):
-        st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(reaction_rows), width="stretch", hide_index=True)
 
     with st.container(border=True):
         st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
@@ -171,13 +171,13 @@ if source_choice == "ChemStation" and uploaded is not None:
                     data=plate_png,
                     file_name="plate_map.png",
                     mime="image/png",
-                    use_container_width=True,
+                    width="stretch",
                     key="excel_dl_png",
                 )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     input_page_markdown.step_label(3, "Save & Proceed")
 
-    save_clicked = st.button("Save setup", type="primary", use_container_width=True, key="excel_save")
+    save_clicked = st.button("Save setup", type="primary", width="stretch", key="excel_save")
 
     if save_clicked:
         st.session_state["data_source_type"] = source_choice
@@ -204,6 +204,7 @@ if source_choice == "ChemStation" and uploaded is not None:
             )
             st.session_state["cat_loading_df"] = annotated_df
         st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+        st.rerun()
 
 if source_choice == "Processed":
     input_page_markdown.preprocessed_file_example()
@@ -253,7 +254,7 @@ if source_choice == "Processed":
     save_preprocessed = st.button(
         "Save setup",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="preprocessed_save",
         disabled=not preprocessed_ready,
     )
@@ -280,8 +281,8 @@ if source_choice == "Processed":
 if st.button(
     "📈  Visualize data and initial rates →",
     type="primary",
-    use_container_width=True,
+    width="stretch",
     key="cta_kinetics",
 ):
-    st.switch_page("pages/Kinetics.py")
+    st.switch_page("main_pages/Kinetics.py")
 

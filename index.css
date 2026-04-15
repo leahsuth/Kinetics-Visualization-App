@@ -187,3 +187,25 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
 .data-source-help-text div {
   width: 600px;
 }
+
+
+/* ***************** */
+/* Utilities page */
+/* ***************** */
+
+.utility-header {
+  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,122,115,0.2);
+}
+
+.utility-header h1 {
+  font-size: 35px;
+}
+
+.utility-header p {
+  font-size: 20px;
+}

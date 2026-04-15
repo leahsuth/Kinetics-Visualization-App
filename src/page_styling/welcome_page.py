@@ -76,21 +76,21 @@ def excel_template_bytes() -> bytes:
         df.to_excel(writer, index=False, sheet_name="Experiment")
     return buf.getvalue()
 
-@st.dialog("Click for instructions", width="medium")
+@st.dialog("Application Instructions", width="medium")
 def help_dialog(instruction_paths):
-    st.caption("**Instructions**")
     if instruction_paths:
-        if "slide_idx" not in st.session_state:
-            st.session_state["slide_idx"] = 0
-        n = len(instruction_paths)
-        idx = st.session_state["slide_idx"]
-        # Put arrows on left and right of the slideshow
-        st.image(str(instruction_paths[idx]))
-        st.caption(f"{idx + 1} / {n}")
-        col_prev, col_next = st.columns(2)
-        with col_prev:
-            if st.button("◀", key="prev"):
-                st.session_state["slide_idx"] = (idx - 1) % n
-        with col_next:
-            if st.button("▶", key="next"):
-                st.session_state["slide_idx"] = (idx + 1) % n
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Initial Input",
+            "Kinetics Main Plot",
+            "Kinetics Rate",
+            "Utilities"])
+        with tab1:
+            st.image(str(instruction_paths[0]))
+        with tab2:
+            st.image(str(instruction_paths[1]))
+        with tab3:
+            st.image(str(instruction_paths[2]))
+        with tab4:
+            st.image(str(instruction_paths[3]))
+    else:
+        st.error("Path Error, help images not found")

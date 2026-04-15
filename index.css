@@ -111,7 +111,8 @@ button[kind="primary"] {
   transition: all 0.4s;
 }
 button[kind="primary"]:hover {
-  background-color: #222;
+  background-color: #EEEE9B;
+  color: black;
   width: 450px;
 }
 
@@ -127,8 +128,8 @@ button[kind="secondary"] {
   transition: all 0.4s;
 }
 button[kind="secondary"]:hover {
-  background-color: #222;
-  color: white;
+  background-color: #EEEE9B;
+  color: black;
   width: 450px;
 }
 

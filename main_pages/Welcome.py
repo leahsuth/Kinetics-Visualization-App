@@ -43,7 +43,7 @@ with col_cta:
     ):
         st.switch_page("main_pages/Initial_Input.py")
 with col_help:
-    help_button = st.button("Click for Instructions!")
+    help_button = st.button("Click for Instructions!", width="stretch")
     if help_button:
         help_dialog(instruction_paths)
 

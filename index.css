@@ -1,5 +1,15 @@
 
 /* ***************** */
+/* general */
+/* ***************** */
+
+code {
+  color: green;
+  font-size: 14px;
+}
+
+
+/* ***************** */
 /* welcome page */
 /* ***************** */
 
@@ -136,4 +146,37 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
 }
 .upload-card-label {
     font-size: 1rem; font-weight: 700; margin-bottom: 2px;
+}
+
+.setup-header {
+  background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
+  color: white;
+  padding: 1rem;
+  margin: 2rem;
+  text-align: center;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,122,115,0.2);
+}
+
+.setup-header h1 {
+  margin: 0; 
+  font-size: 2.2rem; 
+  font-weight: 700; 
+  letter-spacing: -0.02em;
+}
+
+.setup-header p {
+  margin: 0.4rem; 
+  font-size: 1rem; 
+  opacity: 0.88;
+}
+
+.data-source-help-text {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-column-gap: 15px;
+  justify-content: space-around;
+}
+.data-source-help-text div {
+  width: 600px;
 }

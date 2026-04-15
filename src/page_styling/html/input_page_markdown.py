@@ -2,55 +2,49 @@ import streamlit as st
 
 
 def setup_header():
-    st.markdown("""
-        <style>
-        .block-container { max-width: 80%; }
-        </style>
-        """, unsafe_allow_html=True)
-    st.markdown(
+    st.html(
         """
-        <div style="
-            background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-            color: white;
-            padding: 1rem;
-            margin: 2rem;
-            text-align: center;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,122,115,0.2);
-        ">
-            <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em;">Experiment Setup</h1>
-            <p style="margin: 0.4rem; font-size: 1rem; opacity: 0.88;">Upload your conditions and HPLC files, configure reactions, then save to proceed.</p>
+        <div class="setup-header">
+            <h1>Experiment Setup</h1>
+            <p >Upload your conditions and HPLC files, configure reactions, then save to proceed.</p>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 def step_label(number, label):
-    st.markdown(
-        "<div class='step-row'>"
-        f"<span class='step-badge'>{number}</span>"
-        f"<span class='step-title'>{label}</span>"
-        "</div>",
-        unsafe_allow_html=True,
+    st.html(
+        f"""
+        <div class='step-row'>
+        <span class='step-badge'>{number}</span>
+        <span class='step-title'>{label}</span>
+        </div>
+        """
     )
 
 def data_source_help_text():
     with st.expander("Which data source type should I choose?", expanded=False):
-        st.markdown(
+        st.html(
             """
-**ChemStation** — Use this when you are working from **Agilent ChemStation exports**
-and want the app to tie experiments to a **conditions** spreadsheet.
-
-- You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
-- You map reactions, wells, and timepoints, and can use the **plate editor**.
-
-**Processed** — Use this when you already have a **single table** of kinetics that is
-**ready to plot** (time column + one column per analyte).
-
-- You upload **one** file (`.csv` or `.xlsx`); no separate conditions file.
-- Reactions are inferred from the file (e.g. when time resets between runs).
-- Open **How processed files should look** below for an example table layout.
-"""
+            <div class="data-source-help-text">
+                <div>
+                    <h2>ChemStation</h2>Use this when you are working from <b>Agilent ChemStation exports</b>
+                    and want the app to tie experiments to a <b>conditions</b> spreadsheet.
+                    <ul>
+                        <li>You upload <b>two</b> files: experiment conditions (<code>.xlsx</code>) and HPLC results (<code>.xlsx</code>).</li>
+                        <li>You map reactions, wells, and timepoints, and can use the <b>plate editor</b>.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h2>Processed</h2>Use this when you already have a <b>single table</b> of kinetics that is
+                    <b>ready to plot</b> (time column + one column per analyte).
+                    <ul>
+                        <li>You upload <b>one</b> file (<code>.csv</code> or <code>.xlsx</code>); no separate conditions file.</li>
+                        <li>Reactions are inferred from the file (e.g. when time resets between runs).</li>
+                        <li>Open How processed files should look below for an example table layout.</li>
+                    </ul>
+                </div>
+            </div>
+            """
         )
 
 def preprocessed_file_example():

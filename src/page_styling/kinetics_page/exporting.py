@@ -20,6 +20,7 @@ def export_report(reaction_plot_data, rate_summaries):
                 mime="application/pdf",
                 width="stretch",
                 type="primary",
+                help="Report containing generated plots as well as rate information"
             )
         except Exception as e:
             st.warning(f"PDF export unavailable: {e}")
@@ -27,9 +28,6 @@ def export_report(reaction_plot_data, rate_summaries):
 def export_processed_data_file(df):
     with st.container():
         st.subheader("Download Processed Data File")
-        st.caption(
-            "HPLC Data file, includes information from the initial input file"
-        )
         _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
         _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
         download_df = format_download_columns(df)
@@ -43,6 +41,7 @@ def export_processed_data_file(df):
             width="stretch",
             type="primary",
             key="chemstation_download_processed_csv",
+            help="HPLC Data file, includes information from the initial input file (i.e. reaction well, plate information, timepoints, etc"
         )
 
 def export_button_layout(df, is_preprocessed, reaction_plot_data, rate_summaries):

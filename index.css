@@ -104,7 +104,6 @@ button[kind="primary"] {
   border: solid black 1px;
   color: white;
   font-size: 1.15rem;
-  width: 400px;
   margin-left: auto;
   margin-right: auto;
   padding: 0.6rem 1.2rem;
@@ -113,7 +112,6 @@ button[kind="primary"] {
 button[kind="primary"]:hover {
   background-color: #EEEE9B;
   color: black;
-  width: 450px;
 }
 
 button[kind="secondary"] {
@@ -121,7 +119,6 @@ button[kind="secondary"] {
   border: solid black 1px;
   color: #262730;
   font-size: 1.15rem;
-  width: 400px;
   margin-left: auto;
   margin-right: auto;
   padding: 0.6rem 1.2rem;
@@ -130,7 +127,6 @@ button[kind="secondary"] {
 button[kind="secondary"]:hover {
   background-color: #EEEE9B;
   color: black;
-  width: 450px;
 }
 
 /* ***************** */

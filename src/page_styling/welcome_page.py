@@ -27,6 +27,7 @@ def about_main_body():
     st.html(
     """
     <div class="about-main-body">
+        <div class="about-banner">About</div>
         <div class="about-content">
             This app is designed to streamline and automate the process 
             of visualizing and analyzing kinetic data from HPLC experiments. 

@@ -5,8 +5,9 @@
 
 :root {
   --merck-color: #007A73;
-  --primary-button-color: #93e9be;
-  --secondary-color: #e3e3e3;
+  --primary-button-color: #009f83;
+  --secondary-color: #eeee9b;
+  --hover-color: #3370df;
 }
 
 .block-container { 
@@ -27,7 +28,7 @@ code {
 button[kind="primary"] {
   background-color: var(--primary-button-color);
   border: solid black 1px;
-  color: black;
+  color: white;
   font-size: 200px;
   margin-left: auto;
   margin-right: auto;
@@ -35,14 +36,14 @@ button[kind="primary"] {
   transition: all 0.4s;
 }
 button[kind="primary"]:hover {
-  background-color: #EEEE9B;
+  background-color: var(--hover-color);
   color: black;
 }
 
 button[kind="secondary"] {
   background-color: var(--secondary-color);
   border: solid black 1px;
-  color: #262730;
+  color: black;
   font-size: 1.15rem;
   margin-left: auto;
   margin-right: auto;
@@ -50,8 +51,23 @@ button[kind="secondary"] {
   transition: all 0.4s;
 }
 button[kind="secondary"]:hover {
-  background-color: #EEEE9B;
+  background-color: var(--hover-color);
   color: black;
+}
+
+button[kind="tertiary"] {
+  background-color: white;
+  border: solid black 1px;
+  color: red;
+  font-size: 1.15rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.4rem 0.8rem;
+  transition: all 0.4s;
+}
+button[kind="tertiary"]:hover {
+  background-color: red;
+  color: white;
 }
 
 /* ***************** */

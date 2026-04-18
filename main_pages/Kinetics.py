@@ -598,11 +598,9 @@ if True:
         st.divider()
         st.write("# Generated Fit Plots")
 
-        hdr_col, btn_col = st.columns(2)
-        with hdr_col:
-            st.markdown("## Clear plots to reset plotting settings and start fresh.")
-        with btn_col:
-            if st.button("Clear all plots", key="clear_plots", type="primary"):
+        with st.container():
+            st.markdown("#### Clear plots to reset plotting settings and start fresh.")
+            if st.button("Clear all plots", key="clear_plots", type="tertiary"):
                 st.session_state["kinetics_plot_history"] = []
                 st.session_state["kinetics_excluded_keys"] = set()
                 st.session_state["kinetics_clear_counter"] += 1
@@ -619,7 +617,7 @@ if True:
                 cols = st.columns(len(row))
                 for col, (idx, item) in zip(cols, row):
                     with col:
-                        st.plotly_chart(item["fig"], width="stretch")
+                        graphs, tables = st.columns(2)
                         rt = item["rate_table"].iloc[0]
                         caption = f"Reaction {item['reaction']}-{analyte}"
                         rt_rate = rt['Rate']
@@ -627,13 +625,13 @@ if True:
                         rt_Ce = rt['Ce']
                         rt_k = rt['k']
                         mode = item['profile_type']
-                        hdr_left, hdr_right = st.columns(2)
-                        with hdr_right:
-                            clear_button = st.button("Remove this plot", key=f"del_plot_{idx}", type='primary')
+                        with graphs:
+                            st.plotly_chart(item["fig"], width="stretch")
+                        with tables:
+                            clear_button = st.button("X", key=f"del_plot_{idx}_{col}", type='tertiary', help="Remove this plot")
                             if clear_button:
                                 st.session_state["kinetics_remove_idx"] = idx
                                 st.rerun()
-                        with hdr_left:
                             rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
             st.divider()
 

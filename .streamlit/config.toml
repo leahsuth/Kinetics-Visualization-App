@@ -1,15 +1,18 @@
+[theme]
+baseFontSize=18
+font = "sans serif"
+buttonRadius = "large"
+
 [theme.light]
 primaryColor = "#007A73"
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#e3e3e3"
 textColor = "#262730"
-font = "sans serif"
-buttonRadius = "large"
 
 [theme.dark]
-primaryColor = "#FF6961"
-backgroundColor = "black"
-borderColor = "#FF6961"
+primaryColor = "#107C10"
+backgroundColor = "#444"
+borderColor = "#107C10"
 
 [server]
 fileWatcherType = "poll"

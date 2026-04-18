@@ -273,9 +273,6 @@ if source_choice == "Processed":
             "color_by": "Reaction",
         }
         st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
-        time.sleep(4)
-        st.rerun()
-
 
 # ── Saved setup summary ────────────────────────────────────────────────────
 

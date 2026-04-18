@@ -227,9 +227,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
   grid-template-columns: auto auto;
   grid-column-gap: 15px;
   justify-content: space-around;
-}
-.data-source-help-text div {
-  width: 600px;
+  width: 100%;
 }
 
 

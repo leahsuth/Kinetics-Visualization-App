@@ -1,18 +1,21 @@
 import io
+
 import numpy as np
 import pandas as pd
-import streamlit as st
 import plotly.graph_objects as go
-from src.parsing.parsing_data import process_streamlit, format_download_columns
-from src.parsing.process_preprocessed_data import process_preprocessed_data
-from src.page_styling.rate_information import profile_picker
-from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
+import streamlit as st
+
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
-from src.parsing.plotting_process import plot_process
-from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
-from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
-from src.page_styling.report_generator import generate_report_pdf
+from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
+from src.page_styling.rate_information import profile_picker
+from src.page_styling.report_generator import generate_report_pdf
+from src.parsing.parsing_data import format_download_columns, process_streamlit
+from src.parsing.plotting_process import plot_process
+from src.parsing.process_preprocessed_data import process_preprocessed_data
+from src.regression.rate_calculation import exp_func, kinetics_fit_initial_rate
+from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
+from src.page_styling.kinetics_page.exporting import export_button_layout
 
 st.logo(image='assets/Merck_Logo.png')
 st.set_page_config(
@@ -634,45 +637,4 @@ if True:
                             rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
             st.divider()
 
-    #if not is_preprocessed:
-    st.divider()
-    st.subheader("Export Report")
-    try:
-        pdf_bytes = generate_report_pdf(
-            experiment_setup=st.session_state.get("experiment_setup", {}),
-            hplc_file_name=st.session_state.get("hplc_file_name", "-"),
-            plot_history=st.session_state.get("kinetics_plot_history", []),
-            reaction_plots=reaction_plot_data,
-            rate_summaries=rate_summaries,
-        )
-        st.download_button(
-            "Download Report (.pdf)",
-            data=pdf_bytes,
-            file_name="kinetics_report.pdf",
-            mime="application/pdf",
-            width="stretch",
-            type="primary",
-        )
-    except Exception as e:
-        st.warning(f"PDF export unavailable: {e}")
-
-    if not is_preprocessed:
-        st.divider()
-        st.subheader("Download Processed Data File")
-        st.caption(
-            "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
-        )
-        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
-        download_df = format_download_columns(df_after_add_loading)
-        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
-
-        st.download_button(
-            "Download processed data (.csv)",
-            data=_merged_csv,
-            file_name=f"{_stem}_processed.csv",
-            mime="text/csv",
-            width="stretch",
-            type="primary",
-            key="chemstation_download_processed_csv",
-        )
+export_button_layout(df_after_add_loading, is_preprocessed, reaction_plot_data, rate_summaries)

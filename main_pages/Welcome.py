@@ -31,12 +31,12 @@ SLIDES_DIR = Path(__file__).parent.parent / "assets"
 instruction_images = ["Initial_input.png", "Kinetics_main_plot.png", "Kinetics_initial_rate.png", "Utilities.png"]
 instruction_paths = [SLIDES_DIR / f for f in instruction_images if (SLIDES_DIR / f).exists()]
 
-about_banner("Let's Get Started!")
+about_main_body()
 
 col_cta, col_help = st.columns(2)
 with col_cta:
     if st.button(
-        "📈  Visualize data and initial rates →",
+        "Let's get started!",
         type="primary",
         width="stretch",
         key="cta_Initial_Input",
@@ -47,6 +47,3 @@ with col_help:
     if help_button:
         help_dialog(instruction_paths)
 
-about_banner("About")
-
-about_main_body()

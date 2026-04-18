@@ -204,8 +204,6 @@ if source_choice == "ChemStation" and uploaded is not None:
             )
             st.session_state["cat_loading_df"] = annotated_df
             st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
-            time.sleep(4)
-            st.rerun()
 
 if source_choice == "Processed":
     input_page_markdown.preprocessed_file_example()

@@ -634,4 +634,7 @@ if st.session_state["kinetics_plot_history"]:
                         rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
         st.divider()
 
-export_button_layout(df_after_add_loading, is_preprocessed, reaction_plot_data, rate_summaries)
+if is_preprocessed:
+    export_button_layout(df_preproc_plot, is_preprocessed, reaction_plot_data, rate_summaries)
+else:
+    export_button_layout(df_after_add_loading, is_preprocessed, reaction_plot_data, rate_summaries)

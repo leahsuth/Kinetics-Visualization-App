@@ -17,14 +17,9 @@ def ee_widget():
             S = st.number_input("S enantiomer (concentration)", min_value=0.001, value=0.50)
 
         results = st.container(horizontal=True)
+        if (S + R) != 100:
+            st.error("S and R must sum to 100")
+            st.stop()
 
-        with results:
-            calc = st.button("Calculate EE", type="primary")
-            clear = st.button("Clear EE", type="secondary")
-
-        if calc:
-            result = excess(R,S) 
-            st.write(f"Result: {result}")
-
-        if clear:
-            st.write("clear pressed")
+        result = excess(R,S) 
+        results.write(f"## Result: {result}%")

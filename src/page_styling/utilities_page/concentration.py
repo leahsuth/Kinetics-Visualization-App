@@ -75,6 +75,6 @@ def main_concentration_widget():
         mass_from_volume_and_concentration_widget()
     elif selection == 'volume':
         volume_from_mass_and_concentration_widget()
-    # else:
-    #     concentration_from_mass_and_volume_widget()
+    else:
+        concentration_from_mass_and_volume_widget()
 

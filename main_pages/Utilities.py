@@ -21,7 +21,6 @@ utility_header()
 tab1, tab2, tab3, tab4 = st.tabs(["Concentration Calculations", "Dilutions", "Enantiomeric Excess", "Purity"])
 with tab1:
     main_concentration_widget()
-    # pass
 with tab2:
     dilution_widget()
 with tab3:

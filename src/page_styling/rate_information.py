@@ -1,7 +1,7 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from src.regression.rate_calculation import rate_calculation
 import pandas as pd
+from src.regression.rate_calculation import kinetics_fit_initial_rate
 
 def profile_picker(C0: float, Ce: float):
     if C0 > Ce:
@@ -50,4 +50,33 @@ def rate_information(df: pd.DataFrame, analytes: list, auto_pick: bool = True, k
         st.error(f"Error calculating rate: {err}")
         return None, params
 
-
+def build_rate_summary(df_pivot: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
+    """Calculate rate for each analyte (same bounded fit as Rate Plots)."""
+    rows = []
+    for analyte in analytes:
+        if analyte not in df_pivot.columns:
+            rows.append({"Analyte": analyte, "Rate": None})
+            continue
+        single_df = (
+            df_pivot[["time", analyte]]
+            .copy()
+            .dropna(subset=["time", analyte])
+            .sort_values("time")
+        )
+        if len(single_df) < 3:
+            rows.append({"Analyte": analyte, "Rate": None})
+            continue
+        C0 = single_df[analyte].iloc[0]
+        Ce = single_df[analyte].iloc[-1]
+        profile_type = profile_picker(C0, Ce)
+        out = kinetics_fit_initial_rate(
+            single_df,
+            analyte,
+            k,
+            profile_type,
+            float(C0),
+            float(Ce),
+        )
+        r = out[0] if out else None
+        rows.append({"Analyte": analyte, "Rate": r})
+    return pd.DataFrame(rows)

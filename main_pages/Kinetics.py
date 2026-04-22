@@ -8,7 +8,7 @@ import streamlit as st
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
-from src.page_styling.rate_information import profile_picker
+from src.page_styling.rate_information import build_rate_summary
 from src.page_styling.report_generator import generate_report_pdf
 from src.parsing.parsing_data import format_download_columns, process_streamlit
 from src.parsing.plotting_process import plot_process
@@ -355,36 +355,6 @@ if "kinetics_excluded_keys" not in st.session_state:
 if "kinetics_clear_counter" not in st.session_state:
     st.session_state["kinetics_clear_counter"] = 0
 
-def build_rate_summary(df_pivot: pd.DataFrame, analytes: list, k: float) -> pd.DataFrame:
-    """Calculate rate for each analyte (same bounded fit as Rate Plots)."""
-    rows = []
-    for analyte in analytes:
-        if analyte not in df_pivot.columns:
-            rows.append({"Analyte": analyte, "Rate": None})
-            continue
-        single_df = (
-            df_pivot[["time", analyte]]
-            .copy()
-            .dropna(subset=["time", analyte])
-            .sort_values("time")
-        )
-        if len(single_df) < 3:
-            rows.append({"Analyte": analyte, "Rate": None})
-            continue
-        C0 = single_df[analyte].iloc[0]
-        Ce = single_df[analyte].iloc[-1]
-        profile_type = profile_picker(C0, Ce)
-        out = kinetics_fit_initial_rate(
-            single_df,
-            analyte,
-            k,
-            profile_type,
-            float(C0),
-            float(Ce),
-        )
-        r = out[0] if out else None
-        rows.append({"Analyte": analyte, "Rate": r})
-    return pd.DataFrame(rows)
 
 # add y_measure_label
 if is_preprocessed:

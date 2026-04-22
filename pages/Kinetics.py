@@ -8,6 +8,11 @@ from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
+from src.figures.analyte_ratio_graph import (
+    build_ratio_df,
+    build_ratio_long_df,
+    build_ratio_figure,
+)
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
@@ -66,6 +71,7 @@ with st.spinner("Loading data..."):
 
 # Collect one entry per selected reaction for the PDF report
 reaction_plot_data = []
+
 
 # ----Plotting----------------------------------------
 if is_preprocessed:
@@ -179,6 +185,70 @@ if is_preprocessed:
             chart_type=chart_type,
             time_unit=time_unit,
         )
+
+    generate_ratio_plot = st.radio(
+        "Generate analyte ratio plot?",
+        ["No", "Yes"],
+        horizontal=True,
+        key="generate_ratio_plot_preprocessed",
+    )
+    if generate_ratio_plot == "Yes":
+        ratio_analytes = st.multiselect(
+            "Select two analytes (numerator, denominator)",
+            options=analytes,
+            key="ratio_analytes_preprocessed",
+        )
+        if len(ratio_analytes) > 2:
+            st.warning("Please select no more than two analytes for the ratio plot.")
+        elif len(ratio_analytes) != 2:
+            st.warning("Please select two analytes for the ratio plot.")
+        else:
+            numerator, denominator = ratio_analytes
+            ratio_label = f"{numerator}/{denominator}"
+            ratio_df = build_ratio_df(
+                df=df_preproc_plot,
+                reaction_col="Reaction",
+                numerator=numerator,
+                denominator=denominator,
+            )
+            if ratio_df.empty:
+                st.warning("No data available for the ratio plot.")
+            elif reactions_for_plots:
+                for i in range(0, len(reactions_for_plots), 2):
+                    row_reactions = reactions_for_plots[i: i + 2]
+                    cols = st.columns(len(row_reactions))
+                    for col, rxn in zip(cols, row_reactions):
+                        with col:
+                            df_ratio_rxn = ratio_df[
+                                ratio_df["Reaction"].astype(str) == str(rxn)
+                            ]
+                            fig, err = build_ratio_figure(
+                                df=df_ratio_rxn,
+                                reaction_col="Reaction",
+                                chart_type=chart_type,
+                                time_unit=time_unit,
+                                title_suffix=f"Reaction {rxn}",
+                                ratio_label=ratio_label,
+                            )
+                            if err:
+                                st.warning(err)
+                            else:
+                                st.plotly_chart(fig, use_container_width=True)
+            else:
+                ratio_remaining = ratio_df[
+                    ratio_df["Reaction"].astype(str).isin(remaining_reactions)
+                ]
+                fig, err = build_ratio_figure(
+                    df=ratio_remaining,
+                    reaction_col="Reaction",
+                    chart_type=chart_type,
+                    time_unit=time_unit,
+                    ratio_label=ratio_label,
+                )
+                if err:
+                    st.warning(err)
+                else:
+                    st.plotly_chart(fig, use_container_width=True)
 
     # Collect one entry per selected reaction for the PDF report
     for rxn in selected_reactions:
@@ -323,6 +393,73 @@ else:
             time_unit=time_unit,
         )
         st.plotly_chart(fig, use_container_width=True)
+
+    generate_ratio_plot = st.radio(
+        "Generate analyte ratio plot?",
+        ["No", "Yes"],
+        horizontal=True,
+        key="generate_ratio_plot_hplc",
+    )
+    if generate_ratio_plot == "Yes":
+        ratio_analytes = st.multiselect(
+            "Select two analytes (numerator, denominator)",
+            options=analytes,
+            key="ratio_analytes_hplc",
+        )
+        if len(ratio_analytes) > 2:
+            st.warning("Please select no more than two analytes for the ratio plot.")
+        elif len(ratio_analytes) != 2:
+            st.warning("Please select two analytes for the ratio plot.")
+        else:
+            numerator, denominator = ratio_analytes
+            ratio_label = f"{numerator}/{denominator}"
+            ratio_df = build_ratio_long_df(
+                df=df_plot,
+                reaction_col="reaction",
+                reactant_col="reactant",
+                value_col=selected_measurements,
+                ratio_analytes=ratio_analytes,
+                numerator=numerator,
+                denominator=denominator,
+            )
+            if ratio_df.empty:
+                st.warning("No data available for the ratio plot.")
+            elif reactions_for_plots:
+                for i in range(0, len(reactions_for_plots), 2):
+                    row_reactions = reactions_for_plots[i: i + 2]
+                    cols = st.columns(len(row_reactions))
+                    for col, rxn in zip(cols, row_reactions):
+                        with col:
+                            df_ratio_rxn = ratio_df[
+                                ratio_df["reaction"].astype(str) == str(rxn)
+                            ]
+                            fig, err = build_ratio_figure(
+                                df=df_ratio_rxn,
+                                reaction_col="reaction",
+                                chart_type=chart_type,
+                                time_unit=time_unit,
+                                title_suffix=f"Reaction {rxn}",
+                                ratio_label=ratio_label,
+                            )
+                            if err:
+                                st.warning(err)
+                            else:
+                                st.plotly_chart(fig, use_container_width=True)
+            else:
+                ratio_remaining = ratio_df[
+                    ratio_df["reaction"].astype(str).isin(remaining_reactions)
+                ]
+                fig, err = build_ratio_figure(
+                    df=ratio_remaining,
+                    reaction_col="reaction",
+                    chart_type=chart_type,
+                    time_unit=time_unit,
+                    ratio_label=ratio_label,
+                )
+                if err:
+                    st.warning(err)
+                else:
+                    st.plotly_chart(fig, use_container_width=True)
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)

@@ -8,11 +8,7 @@ from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
-from src.figures.analyte_ratio_graph import (
-    build_ratio_df,
-    build_ratio_long_df,
-    build_ratio_figure,
-)
+from src.figures.analyte_ratio_graph import (build_ratio_df, build_ratio_long_df, build_ratio_figure)
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
@@ -193,6 +189,12 @@ if is_preprocessed:
         key="generate_ratio_plot_preprocessed",
     )
     if generate_ratio_plot == "Yes":
+        ratio_chart_type = st.radio(
+            "Chart type",
+            ["Scatter", "Line"],
+            horizontal=True,
+            key="ratio_chart_type_preprocessed",
+        )
         ratio_analytes = st.multiselect(
             "Select two analytes (numerator, denominator)",
             options=analytes,
@@ -225,7 +227,7 @@ if is_preprocessed:
                             fig, err = build_ratio_figure(
                                 df=df_ratio_rxn,
                                 reaction_col="Reaction",
-                                chart_type=chart_type,
+                                chart_type=ratio_chart_type,
                                 time_unit=time_unit,
                                 title_suffix=f"Reaction {rxn}",
                                 ratio_label=ratio_label,
@@ -241,7 +243,7 @@ if is_preprocessed:
                 fig, err = build_ratio_figure(
                     df=ratio_remaining,
                     reaction_col="Reaction",
-                    chart_type=chart_type,
+                    chart_type=ratio_chart_type,
                     time_unit=time_unit,
                     ratio_label=ratio_label,
                 )
@@ -393,7 +395,8 @@ else:
             time_unit=time_unit,
         )
         st.plotly_chart(fig, use_container_width=True)
-
+    
+    # ----Analyte Ratio Plot----------------------------------------
     generate_ratio_plot = st.radio(
         "Generate analyte ratio plot?",
         ["No", "Yes"],
@@ -401,6 +404,12 @@ else:
         key="generate_ratio_plot_hplc",
     )
     if generate_ratio_plot == "Yes":
+        ratio_chart_type = st.radio(
+            "Chart type",
+            ["Scatter", "Line"],
+            horizontal=True,
+            key="ratio_chart_type_hplc",
+        )
         ratio_analytes = st.multiselect(
             "Select two analytes (numerator, denominator)",
             options=analytes,
@@ -436,7 +445,7 @@ else:
                             fig, err = build_ratio_figure(
                                 df=df_ratio_rxn,
                                 reaction_col="reaction",
-                                chart_type=chart_type,
+                                chart_type=ratio_chart_type,
                                 time_unit=time_unit,
                                 title_suffix=f"Reaction {rxn}",
                                 ratio_label=ratio_label,
@@ -452,7 +461,7 @@ else:
                 fig, err = build_ratio_figure(
                     df=ratio_remaining,
                     reaction_col="reaction",
-                    chart_type=chart_type,
+                    chart_type=ratio_chart_type,
                     time_unit=time_unit,
                     ratio_label=ratio_label,
                 )

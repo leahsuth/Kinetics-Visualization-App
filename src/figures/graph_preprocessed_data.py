@@ -5,6 +5,23 @@ import plotly.express as px
 import streamlit as st
 from plotly.graph_objects import Figure
 
+SYMBOL_SEQUENCE = [
+    "circle",
+    "square",
+    "diamond",
+    "cross",
+    "x",
+    "triangle-up",
+    "triangle-down",
+    "triangle-left",
+    "triangle-right",
+    "pentagon",
+    "hexagon",
+    "star",
+    "hourglass",
+    "bowtie",
+]
+
 
 def _reaction_title_suffix(reactions: pd.Series) -> str | None:
     s = reactions.dropna()
@@ -75,7 +92,7 @@ def build_preprocessed_figure(
         hover_data=hover_opts,
     )
 
-    qualitative_colors = px.colors.qualitative.Plotly
+    qualitative_colors = px.colors.sequential.Viridis
 
     if chart_type == "Line":
         fig = px.line(
@@ -83,6 +100,8 @@ def build_preprocessed_figure(
             x="time",
             y="Concentration",
             color=color_select,
+            symbol="Analyte",
+            symbol_sequence=SYMBOL_SEQUENCE,
             line_group="_series_group",
             color_discrete_sequence=qualitative_colors,
             markers=True,
@@ -94,6 +113,8 @@ def build_preprocessed_figure(
             x="time",
             y="Concentration",
             color=color_select,
+            symbol="Analyte",
+            symbol_sequence=SYMBOL_SEQUENCE,
             color_discrete_sequence=qualitative_colors,
             **fig_kwargs,
         )

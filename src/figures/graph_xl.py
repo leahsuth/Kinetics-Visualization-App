@@ -2,6 +2,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+symbol_seq = ["circle","square","diamond","cross","x","triangle-up","triangle-down","triangle-left","triangle-right","pentagon",
+    "hexagon","star","hourglass","bowtie"]
+
 # ----Helper Functions For Titles----------------------------------------
 
 
@@ -79,7 +82,7 @@ def graph_from_xlsx(
     )
 
     # Use a palette with clearly separated colors.
-    qualitative_colors = px.colors.qualitative.Plotly
+    qualitative_colors = px.colors.sequential.Viridis
 
     pretty_meas = update_measurement_label(select_meas)
 
@@ -89,6 +92,8 @@ def graph_from_xlsx(
             x="time",
             y=select_meas,
             color=color_select,
+            symbol="reactant",
+            symbol_sequence=symbol_seq,
             line_group="_series_group",
             hover_data=hover_data,
             color_discrete_sequence=qualitative_colors,
@@ -101,10 +106,13 @@ def graph_from_xlsx(
             x="time",
             y=select_meas,
             color=color_select,
+            symbol="reactant",
+            symbol_sequence=symbol_seq,
             hover_data=hover_data,
             color_discrete_sequence=qualitative_colors,
             **fig_kwargs,
         )
+        fig.update_traces(marker=dict(size=10))
 
     suffix = title_suffix or update_reaction_suffix(df)
     title_text = f"{pretty_meas} vs. Time"

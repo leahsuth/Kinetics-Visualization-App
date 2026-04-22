@@ -30,15 +30,22 @@ def build_ratio_figure(
     df = df.dropna(subset=["time", "analyte_ratio"])
 
     df[reaction_col] = df[reaction_col].astype(str)
+    # Match main kinetics: compare normalized label (independent of main page chart type).
+    is_line = str(chart_type or "").strip().casefold() == "line"
+    # Order points for connected line traces
+    if is_line:
+        df = df.sort_values([reaction_col, "time"])
+
     hover_data = {"time": True, "analyte_ratio": True, reaction_col: True}
     fig_kwargs = dict(width=1200, height=500, hover_data=hover_data)
 
-    if chart_type == "Line":
+    if is_line:
         fig = px.line(
             df,
             x="time",
             y="analyte_ratio",
             color=reaction_col,
+            line_group=reaction_col,
             markers=True,
             color_discrete_sequence=px.colors.qualitative.Plotly,
             **fig_kwargs,

@@ -625,7 +625,7 @@ if st.session_state["kinetics_plot_history"]:
                     rt_k = rt['k']
                     mode = item['profile_type']
                     with graphs:
-                        st.plotly_chart(item["fig"], width="stretch")
+                        st.plotly_chart(item["fig"], key=f"plot_{idx}_{col}", width="stretch")
                     with tables:
                         clear_button = st.button("X", key=f"del_plot_{idx}_{col}", type='tertiary', help="Remove this plot")
                         if clear_button:

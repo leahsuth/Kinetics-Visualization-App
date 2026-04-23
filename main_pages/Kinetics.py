@@ -586,7 +586,6 @@ if st.session_state["kinetics_plot_history"]:
             cols = st.columns(len(row))
             for col, (idx, item) in zip(cols, row):
                 with col:
-                    graphs, tables = st.columns(2)
                     rt = item["rate_table"].iloc[0]
                     caption = f"Reaction {item['reaction']}-{analyte}"
                     rt_rate = rt['Rate']
@@ -594,14 +593,12 @@ if st.session_state["kinetics_plot_history"]:
                     rt_Ce = rt['Ce']
                     rt_k = rt['k']
                     mode = item['profile_type']
-                    with graphs:
-                        st.plotly_chart(item["fig"], key=f"plot_{idx}_{col}", width="stretch")
-                    with tables:
-                        clear_button = st.button("X", key=f"del_plot_{idx}_{col}", type='tertiary', help="Remove this plot")
-                        if clear_button:
-                            st.session_state["kinetics_remove_idx"] = idx
-                            st.rerun()
-                        rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
+                    st.plotly_chart(item["fig"], key=f"plot_{idx}_{col}", width="stretch")
+                    clear_button = st.button("X", key=f"del_plot_{idx}_{col}", type='tertiary', help="Remove this plot")
+                    if clear_button:
+                        st.session_state["kinetics_remove_idx"] = idx
+                        st.rerun()
+                    rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
         st.divider()
 
 if is_preprocessed:

@@ -1,37 +1,5 @@
 # pages/initial_input.py
 
-# FOUR HOURS ON TUESDAY 4/21
-# TWO HOURS ON UI WEDNESDAY 4/22
-# ONE HOUR, ADDED THE PLATE TO PDF GENERATION 4/22
-
-
-
-# NEED TO UPDATE THE FUCKING CSV HANDLING FOR HPLC
-# UPDATE THE WIDTH OF THE DATAFRAME TO BE STRETCH and the other bash errors
-
-
-"""
-CREATE TWO DIFFERENT BRANCHES:
-
-FIRST BRANCH:
-- have both processed data conditions and processed data measurements uploads
-- add plate analysis button
-- processed data will require:
-     - REQUIRE: reaction number
-     - REQUIRE: # of timepoints
-     - OPTIONAL: any additional condition columns they want to include
-     - OPTIONAL: plate for plate map analysis
-
-SECOND BRANCH:
-- instead of adding a conditions page to the processed data file, i think we 
-- just change the instructions to say that you need to label your columns that contain 
-- any measurements (e.g. Concentration) as: Analyte1_Concentration; Analyte2_Concentration; Analyte3_Concentration, etc.
-- and then when they provide the measurement value (i.e. Concentration),
-- we parse everything that comes before it as the analyte names
-
-"""
-
-
 import io
 import sys
 from pathlib import Path

@@ -8,7 +8,7 @@ import streamlit as st
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
-from src.page_styling.rate_information import build_rate_summary
+from src.page_styling.rate_information import profile_picker, build_rate_summary
 from src.page_styling.report_generator import generate_report_pdf
 from src.parsing.parsing_data import format_download_columns, process_streamlit
 from src.parsing.plotting_process import plot_process

@@ -114,7 +114,8 @@ def process_csv(file_name, out_path, save_as_csv=False):
     THIS ONLY HANDLES THE MOCK DATA
     #TODO: Ask sponsor if this is required?
     """
-    df = pd.read_csv(file_name)
+    # Reuse centralized file-type reader for consistency across parsing modules.
+    df = read_input(file_name)
     cols = list(df.columns)
     # change name of first column to Sample Name
     cols[0] = "Sample Name"

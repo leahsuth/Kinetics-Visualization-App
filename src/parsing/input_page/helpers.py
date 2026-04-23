@@ -51,8 +51,10 @@ def find_col_contains(columns, *needles: str) -> Optional[str]:
         for i, c in enumerate(low):
             if c == n:
                 return cols[i]
+    # Prefer longer needles so e.g. "# of timepoints" wins over "tp" on odd headers.
+    needles_sub = sorted(set(needles), key=len, reverse=True)
     for i, c in enumerate(low):
-        for n in needles:
+        for n in needles_sub:
             if n in c:
                 return cols[i]
     return None
@@ -63,13 +65,31 @@ def find_col_contains(columns, *needles: str) -> Optional[str]:
 def parse_excel(df: pd.DataFrame) -> tuple[List[dict], List[str], List[str]]:
     df = normalize_headers(df)
     reaction_col = find_col_contains(df.columns, "reaction", "rxn")
-    time_col = find_col_contains(df.columns, "timepoint", "time point", "timepoints", "tp")
+    time_col = find_col_contains(
+        df.columns,
+        "# of timepoints",
+        "number of timepoints",
+        "num timepoints",
+        "n timepoints",
+        "timepoint count",
+        "timepoint",
+        "time point",
+        "timepoints",
+        "time",
+        "tp",
+    )
     well_col = find_col_contains(df.columns, "reaction_well", "reaction well", "plate_well", "plate well", "well")
 
     if reaction_col is None:
         raise ValueError('Missing required column containing "reaction".')
     if time_col is None:
-        raise ValueError('Missing required column containing "timepoint".')
+        listed = ", ".join(repr(str(c)) for c in df.columns)
+        raise ValueError(
+            "Could not find a time column in the conditions file. "
+            "ChemStation: use a **Timepoint** column (one row per time). "
+            "Processed: use **# of Timepoints** (expected row count per reaction). "
+            f"Your columns: {listed}"
+        )
 
     timepoints = unique_preserve_order(clean_list(df[time_col].tolist()))
     if not timepoints:

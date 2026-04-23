@@ -1,4 +1,37 @@
 # pages/initial_input.py
+
+# FOUR HOURS ON TUESDAY 4/21
+# TWO HOURS ON UI WEDNESDAY 4/22
+# ONE HOUR, ADDED THE PLATE TO PDF GENERATION 4/22
+
+
+
+# NEED TO UPDATE THE FUCKING CSV HANDLING FOR HPLC
+# UPDATE THE WIDTH OF THE DATAFRAME TO BE STRETCH and the other bash errors
+
+
+"""
+CREATE TWO DIFFERENT BRANCHES:
+
+FIRST BRANCH:
+- have both processed data conditions and processed data measurements uploads
+- add plate analysis button
+- processed data will require:
+     - REQUIRE: reaction number
+     - REQUIRE: # of timepoints
+     - OPTIONAL: any additional condition columns they want to include
+     - OPTIONAL: plate for plate map analysis
+
+SECOND BRANCH:
+- instead of adding a conditions page to the processed data file, i think we 
+- just change the instructions to say that you need to label your columns that contain 
+- any measurements (e.g. Concentration) as: Analyte1_Concentration; Analyte2_Concentration; Analyte3_Concentration, etc.
+- and then when they provide the measurement value (i.e. Concentration),
+- we parse everything that comes before it as the analyte names
+
+"""
+
+
 import io
 import sys
 from pathlib import Path
@@ -15,17 +48,28 @@ from src.page_styling.plate_selector import (
 from src.page_styling.upload_files.file_uploader_buttons import (
     experiment_conditions_button,
     hplc_data_button,
+    processed_data_button,
 )
-from src.parsing.input_page.helpers import (clean_list, default_plate_color_field, parse_excel, unique_preserve_order,
-)
+from src.parsing.input_page.helpers import (
+    clean_list,
+    default_plate_color_field,
+    parse_excel,
+    unique_preserve_order)
+
+from src.parsing.parse_file_type import read_input
 from src.parsing.input_page.plate_setup import (
     apply_plate_mode,
     build_well_info,
     finalize_setup,
 )
 from src.parsing.parsing_cat_loading_conditions import parse_conditions_df
-from src.parsing.process_preprocessed_data import process_preprocessed_data
+from src.parsing.process_preprocessed_data import (
+    normalize_preprocessed_conditions,
+    process_preprocessed_data,
+    add_loading_data_preprocessed,
+)
 
+from src.page_styling.template import excel_template_bytes_HPLC, excel_template_bytes_Processed
 
 st.logo(image='assets/Merck_Logo.png')
 
@@ -51,20 +95,6 @@ source_choice = st.selectbox(
 input_page_markdown.data_source_help_text()
 
 
-def excel_template_bytes() -> bytes:
-    df = pd.DataFrame(
-        [
-            {"Reaction": "1", "Reaction_Well": "A1", "Timepoint": "0", "Condition1": "LigA", "Condition2": "Cat1"},
-            {"Reaction": "2", "Reaction_Well": "A2", "Timepoint": "5", "Condition1": "", "Condition2": "Cat2"},
-            {"Reaction": "", "Reaction_Well": "", "Timepoint": "10", "Condition1": "", "Condition2": ""},
-        ]
-    )
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Experiment")
-    return buf.getvalue()
-
-
 # ── Step 1: Upload files ────────────────────────────────────────────────────
 uploaded = None
 if source_choice == "ChemStation":
@@ -73,20 +103,66 @@ if source_choice == "ChemStation":
     col_cond, col_hplc = st.columns(2, gap="large")
 
     with col_cond:
-        uploaded = experiment_conditions_button(template_bytes_fn=excel_template_bytes)
+        uploaded = experiment_conditions_button(
+            template_bytes_fn=excel_template_bytes_HPLC, HPLC=True)
 
     with col_hplc:
         hplc_data_button()
 
+if source_choice == "Processed":
+    input_page_markdown.preprocessed_file_example()
+
+    input_page_markdown.step_label(1, "Upload Files")
+
+    col_pre, col_meas = st.columns(2, gap="large")
+
+    with col_pre:
+        uploaded = experiment_conditions_button(
+            template_bytes_fn=excel_template_bytes_Processed, HPLC=False)
+
+    with col_meas:
+        processed_data_button()
+
+    input_page_markdown.step_label(2, "Update Measurement Type")
+    with st.container(border=True):
+        st.markdown("<div class='upload-card-label'>Measurement label</div>", unsafe_allow_html=True)
+        st.caption("Used for plot axes (e.g. Concentration, Area %).")
+        measurement_type = st.text_input(
+            "Measurement type",
+            "Concentration",
+            label_visibility="collapsed",
+            key="preprocessed_measurement_type",
+        )
+        st.session_state["measurement_type"] = measurement_type
+
+    preprocessed_ready = bool(
+        st.session_state.get("processed_data_file_bytes")
+        and st.session_state.get("conditions_file_bytes")
+    )
+
+    if preprocessed_ready:
+        preprocessed_conditions_df = normalize_preprocessed_conditions(
+            st.session_state.get("conditions_file_bytes")
+        )
+        preprocessed_data_df = process_preprocessed_data(st.session_state.get("processed_data_file_bytes"), preprocessed_conditions_df)
+        preprocessed_data_df = add_loading_data_preprocessed(preprocessed_data_df, preprocessed_conditions_df)
+        st.session_state["preprocessed_data_df"] = preprocessed_data_df
+
+    if not preprocessed_ready:
+        st.info(
+            "Upload a processed CSV or XLSX file above, then save setup to continue.",
+            icon="👇",
+        )
+
 
 # ── Step 2: Configure (only shown after conditions file is uploaded) ─────────
 
-if source_choice == "ChemStation" and uploaded is not None:
+if uploaded is not None:
     try:
-        df = pd.read_excel(uploaded)
+        df = read_input(uploaded)
         st.session_state["uploaded_excel_df"] = df
         if df.empty:
-            st.error("This Excel file appears to be empty.")
+            st.error("This uploaded file appears to be empty.")
             st.stop()
         reaction_rows, timepoints, cond_cols = parse_excel(df)
         reaction_rows = apply_plate_mode(reaction_rows)
@@ -94,22 +170,32 @@ if source_choice == "ChemStation" and uploaded is not None:
         st.error(str(e))
         st.stop()
 
-    hplc_ready = bool(st.session_state.get("hplc_file_bytes"))
-    if hplc_ready:
+    if source_choice == "ChemStation":
+        ready = bool(
+            st.session_state.get("hplc_file_bytes")
+        )
+    elif source_choice == "Processed":
+        ready = bool(
+            st.session_state.get("processed_data_file_bytes")
+        )
+
+    if ready:
         st.info(
             "Both files uploaded. **Review your experiment configuration below and click Save setup** when ready to proceed to the Kinetics page.",
             icon="👇",
         )
     else:
         st.info(
-            "Conditions file uploaded. **Review your experiment configuration below, upload your HPLC data above, then click Save setup** to proceed.",
+            "Conditions file uploaded. **Review your experiment configuration below, upload your data above, then click Save setup** to proceed.",
             icon="👇",
         )
 
     input_page_markdown.step_label(2, "Review & Configure")
 
     with st.expander("Preview reaction table", expanded=False):
-        st.dataframe(pd.DataFrame(reaction_rows), use_container_width=True, hide_index=True)
+        df = pd.DataFrame(reaction_rows)
+        df = df.drop(columns=["Notes"])
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
     with st.container(border=True):
         st.markdown("<div class='section-label'>Plate editor</div>", unsafe_allow_html=True)
@@ -142,7 +228,6 @@ if source_choice == "ChemStation" and uploaded is not None:
                 width=300
             )
 
-
     if show_plate:
         has_wells = any(str(r.get("Reaction_Well", "")).strip() for r in reaction_rows)
         if not has_wells:
@@ -156,7 +241,7 @@ if source_choice == "ChemStation" and uploaded is not None:
             with st.container(border=True):
                 well_info_excel = render_plate_editor_modal(
                     base_info,
-                    title="Plate Map",
+                    title="Reaction Plate Map",
                     key_prefix="excel_plate",
                     n_items=len(reaction_rows),
                     color_by=color_by,
@@ -174,103 +259,58 @@ if source_choice == "ChemStation" and uploaded is not None:
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     input_page_markdown.step_label(3, "Save & Proceed")
 
-    save_clicked = st.button("Save setup", type="primary", use_container_width=True, key="excel_save")
+    if source_choice == "ChemStation":
+        save_clicked = st.button("Save setup", type="primary", use_container_width=True, key="excel_save")
 
-    if save_clicked:
-        st.session_state["data_source_type"] = source_choice
-        well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
-        updated_rows = [well_info.get(r.get("Reaction_Well", ""), dict(r)) for r in reaction_rows]
-        for r in updated_rows:
-            if not str(r.get("Notes", "")).strip():
-                r["Notes"] = "None"
+        if save_clicked:
+            st.session_state["data_source_type"] = source_choice
+            well_info = st.session_state.get("excel_plate_well_info") or build_well_info(reaction_rows, cond_cols)
+            updated_rows = [well_info.get(r.get("Reaction_Well", ""), dict(r)) for r in reaction_rows]
+            for r in updated_rows:
+                if not str(r.get("Notes", "")).strip():
+                    r["Notes"] = "None"
 
-        st.session_state["experiment_setup"] = finalize_setup(
-            "excel", updated_rows, timepoints, cond_cols, well_info, color_by
+            st.session_state["experiment_setup"] = finalize_setup(
+                "excel", updated_rows, timepoints, cond_cols, well_info, color_by
+            )
+
+            rxn_df = pd.DataFrame(updated_rows)
+            st.session_state["experiment_setup_df"] = rxn_df
+
+            raw_df = st.session_state.get("uploaded_excel_df")
+            if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
+                raw_df_norm = parse_conditions_df(raw_df)
+                rxn_df_norm = parse_conditions_df(rxn_df)
+                rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
+                annotated_df = raw_df_norm.merge(
+                    rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
+                )
+                st.session_state["cat_loading_df"] = annotated_df
+            st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+
+    elif source_choice == "Processed":
+        save_preprocessed = st.button(
+            "Save setup",
+            type="primary",
+            use_container_width=True,
+            key="preprocessed_save",
+            disabled=not preprocessed_ready,
         )
 
-        rxn_df = pd.DataFrame(updated_rows)
-        st.session_state["experiment_setup_df"] = rxn_df
+        if save_preprocessed:
+            st.session_state["PREPROCESSED_DATA_DF"] = st.session_state["preprocessed_data_df"]
 
-        raw_df = st.session_state.get("uploaded_excel_df")
-        if isinstance(raw_df, pd.DataFrame) and not raw_df.empty:
-            raw_df_norm = parse_conditions_df(raw_df)
-            rxn_df_norm = parse_conditions_df(rxn_df)
-            rxn_df_norm = rxn_df_norm.drop(columns=["well"], errors="ignore")
-            annotated_df = raw_df_norm.merge(
-                rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
-            )
-            st.session_state["cat_loading_df"] = annotated_df
-        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
-
-if source_choice == "Processed":
-    input_page_markdown.preprocessed_file_example()
-
-    col_pre, col_meas = st.columns(2, gap="large")
-
-    with col_pre:
-        input_page_markdown.step_label(1, "Upload Files")
-        with st.container(border=True):
-            st.markdown("<div class='upload-card-label'>Processed Data</div>", unsafe_allow_html=True)
-            st.caption("CSV or Excel with time and analyte columns (see Kinetics page).")
-            pre_file = st.file_uploader(
-                "Upload processed data (.csv or .xlsx)",
-                type=["csv", "xlsx"],
-                key="preprocessed_uploader",
-                label_visibility="collapsed",
-            )
-            if pre_file is not None:
-                st.session_state["preprocessed_file_bytes"] = pre_file.read()
-                st.session_state["preprocessed_file_name"] = pre_file.name
-                st.success(f"Loaded: {pre_file.name}")
-            elif st.session_state.get("preprocessed_file_name"):
-                st.info(f"Using: {st.session_state['preprocessed_file_name']}")
-
-    with col_meas:
-        input_page_markdown.step_label(2, "Update Measurement Type")
-        with st.container(border=True):
-            st.markdown("<div class='upload-card-label'>Measurement label</div>", unsafe_allow_html=True)
-            st.caption("Used for plot axes (e.g. Concentration, Area %).")
-            measurement_type = st.text_input(
-                "Measurement type",
-                "Concentration",
-                label_visibility="collapsed",
-                key="preprocessed_measurement_type",
-            )
-            st.session_state["measurement_type"] = measurement_type
-
-    preprocessed_ready = bool(st.session_state.get("preprocessed_file_bytes"))
-    if not preprocessed_ready:
-        st.info(
-            "Upload a processed CSV or XLSX file above, then save setup to continue.",
-            icon="👇",
-        )
-
-    input_page_markdown.step_label(3, "Save & Proceed")
-
-    save_preprocessed = st.button(
-        "Save setup",
-        type="primary",
-        use_container_width=True,
-        key="preprocessed_save",
-        disabled=not preprocessed_ready,
-    )
-
-    if save_preprocessed:
-        file_bytes = st.session_state.get("preprocessed_file_bytes")
-        preprocessed_df = process_preprocessed_data(file_bytes)
-        st.session_state["PREPROCESSED_DATA_DF"] = preprocessed_df
-
-        st.session_state["experiment_setup"] = {
-            "source": "preprocessed",
-            "timepoints": unique_preserve_order(clean_list(preprocessed_df["time"].unique())),
-            "condition_columns": [],
-            "reaction_rows": [2],
-            "reactions": [1],
-            "well_info": st.session_state.get("preprocessed_plate_well_info", {}),
-            "color_by": "Reaction",
-        }
-        st.success("Setup saved! Head to the Kinetics page to visualize your data.")
-
+            st.session_state["experiment_setup"] = {
+                "source": "preprocessed",
+                "timepoints": unique_preserve_order(clean_list(st.session_state["preprocessed_data_df"]["time"].unique())),
+                "condition_columns": [],
+                "reaction_rows": [2],
+                "reactions": [1],
+                "well_info": st.session_state.get(
+                    "preprocessed_plate_well_info", {}),
+                "color_by": "Reaction",
+            }
+            st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
 # ── Saved setup summary ────────────────────────────────────────────────────
 
@@ -281,4 +321,3 @@ if st.button(
     key="cta_kinetics",
 ):
     st.switch_page("pages/Kinetics.py")
-

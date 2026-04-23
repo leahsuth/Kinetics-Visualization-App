@@ -11,7 +11,8 @@ utilities = st.Page("main_pages/Utilities.py", title="Utilities")
 pages = [welcome,input, kinetics, utilities] 
 
 pg = st.navigation(
-    pages
+    pages,
+    position="top"
 )
 
 pg.run()

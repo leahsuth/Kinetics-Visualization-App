@@ -2,9 +2,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-symbol_seq = ["circle","square","diamond","cross","x","triangle-up","triangle-down","triangle-left","triangle-right","pentagon",
-    "hexagon","star","hourglass","bowtie"]
-
 # ----Helper Functions For Titles----------------------------------------
 
 
@@ -53,6 +50,7 @@ def graph_from_xlsx(
     chart_type: str,
     title_suffix: str | None = None,
     time_unit: str = "hours",
+    colorblind_shapes: bool = False,
 ) -> go.Figure:
     """
     Build Plotly figure from a given dataframe.
@@ -81,37 +79,78 @@ def graph_from_xlsx(
         height=500,
     )
 
-    # Use a palette with clearly separated colors.
-    qualitative_colors = px.colors.sequential.Viridis
+    qualitative_colors = px.colors.qualitative.Plotly
+
+    symbol_sequence = [
+        "circle",
+        "square",
+        "diamond",
+        "cross",
+        "x",
+        "triangle-up",
+        "triangle-down",
+        "triangle-left",
+        "triangle-right",
+        "pentagon",
+        "hexagon",
+        "star",
+        "hourglass",
+        "bowtie",
+    ]
 
     pretty_meas = update_measurement_label(select_meas)
 
     if chart_type == "Line":
-        fig = px.line(
-            df,
-            x="time",
-            y=select_meas,
-            color=color_select,
-            symbol="reactant",
-            symbol_sequence=symbol_seq,
-            line_group="_series_group",
-            hover_data=hover_data,
-            color_discrete_sequence=qualitative_colors,
-            markers=True,
-            **fig_kwargs,
-        )
+        if colorblind_shapes:
+            fig = px.line(
+                df,
+                x="time",
+                y=select_meas,
+                color=color_select,
+                line_group="_series_group",
+                hover_data=hover_data,
+                color_discrete_sequence=qualitative_colors,
+                symbol="reactant",
+                symbol_sequence=symbol_sequence,
+                markers=True,
+                **fig_kwargs,
+            )
+        else:
+            fig = px.line(
+                df,
+                x="time",
+                y=select_meas,
+                color=color_select,
+                line_group="_series_group",
+                hover_data=hover_data,
+                color_discrete_sequence=qualitative_colors,
+                markers=True,
+                **fig_kwargs,
+            )
+        fig.update_traces(marker=dict(size=10))
     else:
-        fig = px.scatter(
-            df,
-            x="time",
-            y=select_meas,
-            color=color_select,
-            symbol="reactant",
-            symbol_sequence=symbol_seq,
-            hover_data=hover_data,
-            color_discrete_sequence=qualitative_colors,
-            **fig_kwargs,
-        )
+        if colorblind_shapes:
+            fig = px.scatter(
+                df,
+                x="time",
+                y=select_meas,
+                color=color_select,
+                hover_data=hover_data,
+                color_discrete_sequence=qualitative_colors,
+                symbol="reactant",
+                symbol_sequence=symbol_sequence,
+                **fig_kwargs,
+            )
+        else:
+            fig = px.scatter(
+                df,
+                x="time",
+                y=select_meas,
+                color=color_select,
+                hover_data=hover_data,
+                color_discrete_sequence=qualitative_colors,
+                **fig_kwargs,
+            )
         fig.update_traces(marker=dict(size=10))
 
     suffix = title_suffix or update_reaction_suffix(df)

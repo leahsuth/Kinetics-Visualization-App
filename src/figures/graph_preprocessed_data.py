@@ -5,24 +5,6 @@ import plotly.express as px
 import streamlit as st
 from plotly.graph_objects import Figure
 
-SYMBOL_SEQUENCE = [
-    "circle",
-    "square",
-    "diamond",
-    "cross",
-    "x",
-    "triangle-up",
-    "triangle-down",
-    "triangle-left",
-    "triangle-right",
-    "pentagon",
-    "hexagon",
-    "star",
-    "hourglass",
-    "bowtie",
-]
-
-
 def _reaction_title_suffix(reactions: pd.Series) -> str | None:
     s = reactions.dropna()
     if s.empty or s.nunique() <= 1:
@@ -43,6 +25,7 @@ def build_preprocessed_figure(
     time_unit: str = "hours",
     title_suffix: str | None = None,
     measurement_type: str = "Concentration",
+    colorblind_shapes: bool = False,
 ) -> tuple[Figure | None, str | None]:
     """
     Build the Plotly figure for preprocessed kinetics (no Streamlit).
@@ -92,32 +75,73 @@ def build_preprocessed_figure(
         hover_data=hover_opts,
     )
 
-    qualitative_colors = px.colors.sequential.Viridis
+    qualitative_colors = px.colors.qualitative.Plotly
+
+    symbol_sequence = [
+        "circle",
+        "square",
+        "diamond",
+        "cross",
+        "x",
+        "triangle-up",
+        "triangle-down",
+        "triangle-left",
+        "triangle-right",
+        "pentagon",
+        "hexagon",
+        "star",
+        "hourglass",
+        "bowtie",
+    ]
 
     if chart_type == "Line":
-        fig = px.line(
-            melted_df,
-            x="time",
-            y="Concentration",
-            color=color_select,
-            symbol="Analyte",
-            symbol_sequence=SYMBOL_SEQUENCE,
-            line_group="_series_group",
-            color_discrete_sequence=qualitative_colors,
-            markers=True,
-            **fig_kwargs,
-        )
+        if colorblind_shapes:
+            fig = px.line(
+                melted_df,
+                x="time",
+                y="Concentration",
+                color=color_select,
+                line_group="_series_group",
+                color_discrete_sequence=qualitative_colors,
+                symbol="Analyte",
+                symbol_sequence=symbol_sequence,
+                markers=True,
+                **fig_kwargs,
+            )
+        else:
+            fig = px.line(
+                melted_df,
+                x="time",
+                y="Concentration",
+                color=color_select,
+                line_group="_series_group",
+                color_discrete_sequence=qualitative_colors,
+                markers=True,
+                **fig_kwargs,
+            )
+        fig.update_traces(marker=dict(size=10))
     else:
-        fig = px.scatter(
-            melted_df,
-            x="time",
-            y="Concentration",
-            color=color_select,
-            symbol="Analyte",
-            symbol_sequence=SYMBOL_SEQUENCE,
-            color_discrete_sequence=qualitative_colors,
-            **fig_kwargs,
-        )
+        if colorblind_shapes:
+            fig = px.scatter(
+                melted_df,
+                x="time",
+                y="Concentration",
+                color=color_select,
+                color_discrete_sequence=qualitative_colors,
+                symbol="Analyte",
+                symbol_sequence=symbol_sequence,
+                **fig_kwargs,
+            )
+        else:
+            fig = px.scatter(
+                melted_df,
+                x="time",
+                y="Concentration",
+                color=color_select,
+                color_discrete_sequence=qualitative_colors,
+                **fig_kwargs,
+            )
+        fig.update_traces(marker=dict(size=10))
 
     title_text = f"{measurement_type} vs. Time"
     if title_suffix:
@@ -145,6 +169,7 @@ def graph_preprocessed_data(
     chart_type: str,
     time_unit: str = "hours",
     title_suffix: str | None = None,
+    colorblind_shapes: bool = False,
 ):
     meas = st.session_state.get("measurement_type", "Concentration")
     fig, err = build_preprocessed_figure(
@@ -154,6 +179,7 @@ def graph_preprocessed_data(
         time_unit,
         title_suffix=title_suffix,
         measurement_type=meas,
+        colorblind_shapes=colorblind_shapes,
     )
     if err:
         st.error(err)

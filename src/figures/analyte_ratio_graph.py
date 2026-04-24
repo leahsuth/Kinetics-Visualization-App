@@ -50,6 +50,7 @@ def build_ratio_figure(
             color_discrete_sequence=px.colors.qualitative.Plotly,
             **fig_kwargs,
         )
+        fig.update_traces(marker=dict(size=10))
     else:
         fig = px.scatter(
             df,
@@ -59,6 +60,7 @@ def build_ratio_figure(
             color_discrete_sequence=px.colors.qualitative.Plotly,
             **fig_kwargs,
         )
+        fig.update_traces(marker=dict(size=10))
 
     title_text = "Analyte Ratio vs. Time"
     if title_suffix:

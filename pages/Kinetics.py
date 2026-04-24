@@ -138,7 +138,7 @@ if is_preprocessed:
     )
 
     colorblind_shapes = st.toggle(
-        "Use shapes for plot markers?",
+        "Colorblind-friendly: distinct marker shapes",
         key="_kinetics_colorblind_shapes",
     )
 

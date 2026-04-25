@@ -59,10 +59,19 @@ with st.spinner("Loading data..."):
         uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
         uploaded_file.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
         experiment_setup = st.session_state.get("cat_loading_df")
-        final_df, df_after_add_loading, first_line = process_streamlit(
-            experiment_setup, uploaded_file
-        )
-        st.session_state["first_line"] = first_line
+        try:
+            final_df, df_after_add_loading, first_line = process_streamlit(
+                experiment_setup, uploaded_file
+            )
+            st.session_state["first_line"] = first_line
+        except Exception as e:
+            st.error(
+                "Unable to parse the uploaded HPLC file. "
+                "Please confirm it is a ChemStation export (with a 'Peak RT' header row), "
+                "then re-upload and try again."
+            )
+            st.caption(str(e))
+            st.stop()
 
 # Collect one entry per selected reaction for the PDF report
 reaction_plot_data = []

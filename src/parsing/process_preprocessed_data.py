@@ -110,10 +110,6 @@ def _validate_timepoints(
     raw_actual = meas_df.groupby("Reaction").size().to_dict()
     actual = {_rxn_key(k): int(v) for k, v in raw_actual.items() if _rxn_key(k)}
 
-    # Debug visibility in container logs.
-    print("Expected timepoints by reaction:", dict(sorted(expected.items())))
-    print("Actual rows by reaction:", dict(sorted(actual.items())))
-
     if actual != expected:
         raise ValueError("Timepoint row mismatch.")
 
@@ -154,8 +150,6 @@ def process_preprocessed_data(
     # Validate the data vs the conditions.
     _validate_timepoints(df, conditions_df)
 
-    print(df)
-
     return df
 
 
@@ -180,7 +174,5 @@ def add_loading_data_preprocessed(df, conditions_df):
 
     lookup_copy = lookup_copy[keep_cols]
     merged = pd.merge(merged, lookup_copy, on="Reaction", how="left")
-
-    print(merged)
 
     return merged

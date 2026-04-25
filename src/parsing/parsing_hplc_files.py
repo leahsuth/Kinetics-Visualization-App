@@ -7,8 +7,6 @@ import pandas as pd
 from pathlib import Path
 from src.parsing.parse_file_type import read_input
 
-
-
 def process_first_line(file_name):
     """
     Extract the first row/line of a file for description/metadata.
@@ -114,7 +112,8 @@ def process_csv(file_name, out_path, save_as_csv=False):
     THIS ONLY HANDLES THE MOCK DATA
     #TODO: Ask sponsor if this is required?
     """
-    df = pd.read_csv(file_name)
+    # Reuse centralized file-type reader for consistency across parsing modules.
+    df = read_input(file_name)
     cols = list(df.columns)
     # change name of first column to Sample Name
     cols[0] = "Sample Name"
@@ -157,6 +156,13 @@ def process_excel(file_name, out_path, engine, save_as_csv=False):
             axis=1,
         )
     ]
+
+    if len(matches) == 0:
+        raise ValueError(
+            "Could not locate the 'Peak RT' header row in the uploaded HPLC Excel "
+            "file. This usually means the file is not in the expected ChemStation "
+            "export format or the sheet/layout is different."
+        )
 
     # header row is the one with the RT, above the peak RT row
     hdr1_row = matches[0] - 1

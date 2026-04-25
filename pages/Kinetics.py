@@ -41,7 +41,7 @@ source_type = experiment_setup_meta.get("source", "excel")
 is_preprocessed = source_type == "preprocessed"
 
 if is_preprocessed:
-    if "preprocessed_file_bytes" not in st.session_state:
+    if "processed_data_file_bytes" not in st.session_state:
         st.info("Please upload a preprocessed file on the Experiment Setup page to begin.")
         st.stop()
 else:
@@ -60,10 +60,19 @@ with st.spinner("Loading data..."):
         uploaded_file = io.BytesIO(st.session_state["hplc_file_bytes"])
         uploaded_file.name = st.session_state.get("hplc_file_name", "hplc_data.xlsx")
         experiment_setup = st.session_state.get("cat_loading_df")
-        final_df, df_after_add_loading, first_line = process_streamlit(
-            experiment_setup, uploaded_file
-        )
-        st.session_state["first_line"] = first_line
+        try:
+            final_df, df_after_add_loading, first_line = process_streamlit(
+                experiment_setup, uploaded_file
+            )
+            st.session_state["first_line"] = first_line
+        except Exception as e:
+            st.error(
+                "Unable to parse the uploaded HPLC file. "
+                "Please confirm it is a ChemStation export (with a 'Peak RT' header row), "
+                "then re-upload and try again."
+            )
+            st.caption(str(e))
+            st.stop()
 
 # Collect one entry per selected reaction for the PDF report
 reaction_plot_data = []
@@ -121,6 +130,9 @@ if is_preprocessed:
     default_color_by = st.session_state.get("_kinetics_color_by", "Analyte")
     if default_color_by not in color_options:
         default_color_by = color_options[0] if color_options else "Reaction"
+    
+    if is_preprocessed:
+        default_color_by = "Analyte"
 
     color_by = st.radio(
         "Color by:",
@@ -291,6 +303,7 @@ if is_preprocessed:
             "df": long_rxn,
             "select_meas": "value",
             "color_by": color_by_pdf,
+            "chart_type": chart_type,
             "title_text": f"{measurement_type} vs. Time for Reaction {rxn}",
             "x_label": f"Time ({time_unit})",
             "y_label": measurement_type,
@@ -508,6 +521,7 @@ else:
                 "df": df_rxn,
                 "select_meas": selected_measurements,
                 "color_by": color_by,
+                "chart_type": chart_type,
                 "title_text": f"{pretty_meas} vs. Time for Reaction {rxn}",
                 "x_label": f"Time ({time_unit})",
                 "y_label": pretty_meas,
@@ -819,7 +833,6 @@ if True:
                         )
             st.divider()
 
-    #if not is_preprocessed:
     st.divider()
     st.subheader("Export Report")
     try:
@@ -841,23 +854,30 @@ if True:
     except Exception as e:
         st.warning(f"PDF export unavailable: {e}")
 
-    if not is_preprocessed:
-        st.divider()
-        st.subheader("Download Processed Data File")
-        st.caption(
-            "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
-        )
-        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+#### REPORT GENERATION ####
+    st.divider()
+    st.subheader("Download Processed Data File")
+    st.caption(
+        "HPLC data file, includes information from the initial input file (i.e., reaction number, wells, timepoints)."
+    )
+    source_name = (
+        st.session_state.get("processed_data_file_name")
+        if is_preprocessed
+        else st.session_state.get("hplc_file_name")
+    ) or "processed_data"
+    _stem = source_name.rsplit(".", 1)[0] if "." in source_name else source_name
+    if is_preprocessed:
+        download_df = format_download_columns(final_df)
+    else:
         download_df = format_download_columns(df_after_add_loading)
-        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
+    _merged_csv = download_df.to_csv(index=False).encode("utf-8")
 
-        st.download_button(
-            "Download processed data (.csv)",
-            data=_merged_csv,
-            file_name=f"{_stem}_processed.csv",
-            mime="text/csv",
-            use_container_width=True,
-            type="primary",
-            key="chemstation_download_processed_csv",
-        )
+    st.download_button(
+        "Download processed data (.csv)",
+        data=_merged_csv,
+        file_name=f"{_stem}_processed.csv",
+        mime="text/csv",
+        use_container_width=True,
+        type="primary",
+        key="chemstation_download_processed_csv",
+    )

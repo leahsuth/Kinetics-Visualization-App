@@ -11,6 +11,7 @@ def setup_header():
         """
     )
 
+
 def step_label(number, label):
     st.html(
         f"""
@@ -20,6 +21,7 @@ def step_label(number, label):
         </div>
         """
     )
+
 
 def data_source_help_text():
     with st.expander("Which data source type should I choose?", expanded=False):
@@ -47,33 +49,30 @@ def data_source_help_text():
             """
         )
 
+
 def preprocessed_file_example():
     with st.expander("How processed files should look (example table)", expanded=False):
         st.markdown(
             """
-This table should only contain ONE measurement type.Use a **wide** table: one row per timepoint per sample, **one column for time**, and **one column per analyte**
-(with numeric measurements). The **first column** can be any sample or run label; it is stored as **Sample Name**.
-
-**Column names**
+**Measurements file** — use a **wide** table: one row per reaction per timepoint, **one column for time**, and **one column per analyte**
+(with numeric measurements). Use **one measurement type** per file (e.g. all concentrations or all areas).
 
 | Column | Required? | Notes |
 |--------|-----------|-------|
-| Sample Identifier | Recommended | Can be (identifier, well ID, etc.). |
-| `time`, `Time`, or `timepoint` | Yes | Any unit is acceptable, but should be consistent throughout the file. |
-| All other columns | At least one | Treated as **analytes** (e.g. product, impurity, internal standard). The value in this column should be the measurement of the analyte at that point of the run. |
+| **Reaction** | Yes | Must match the **Reaction** IDs present in the conditions spreadsheet. |
+| **Time** | Yes | Time values corresponding to the reaction measurements. |
+| All other numeric columns | At least one | **Analytes** (e.g. product, impurity). |
 
-**Reaction IDs** are assigned automatically: rows stay in the same reaction while time is non-decreasing; when **time drops** compared to the previous row, a **new reaction** starts (reaction 2, 3, …).
+**Example** (CSV / Excel):
 
-**Example** (CSV / Excel — same layout):
+| Reaction | time | ANALYTE1 | ANALYTE2 |
+|----------|------|-----------|-----------|
+| 1 | 0 | 0.10 | 0.90 |
+| 1 | 5 | 0.35 | 0.63 |
+| 2 | 0 | 0.12 | 0.88 |
+| 2 | 5 | 0.40 | 0.58 |
 
-| Sample Identifier | time | ANALYTE_1 | ANALYTE_2 | ANALYTE_3 |
-|-------------|------|---------|-----|----------|
-| NB-001-01 | 0 | 0.10 | 0.90 | 0.00 |
-| NB-001-01 | 2 | 0.35 | 0.63 | 0.02 |
-| NB-001-01 | 4 | 0.58 | 0.40 | 0.02 |
-| NB-002-01 | 0 | 0.12 | 0.88 | 0.00 |
-| NB-002-01 | 2 | 0.40 | 0.58 | 0.02 |
 
-Here the first three rows are **Reaction 1**. The next two rows start **Reaction 2**.
+**Validation note:** For Processed mode, the app checks row counts per reaction against **# of Timepoints** in the conditions file.
             """
         )

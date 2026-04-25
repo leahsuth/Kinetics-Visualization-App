@@ -35,10 +35,12 @@ def about_main_body():
             <ul>
                 <li>Generating plate layouts from reaction conditions</li>
                 <li>Graphing Peak Area over Time</li>
-                <li>Graphing Peak Area Percent over Time</li>
+                <li>Graphing Analyte Ratio over Time</li>
                 <li>Calculating initial rates </li>
                 <li>Graphing exponential fit of reactions</li>
                 <li>Downloading plots as PNGs</li>
+                <li>Downloading report summaries as PDFs</li>
+                <li>Downloading processed data as Excel files</li>
                 <li>Solving common laboratory calculations</li>
             </ul>
        </div>
@@ -81,9 +83,9 @@ def excel_template_bytes() -> bytes:
 def help_dialog(instruction_paths):
     if instruction_paths:
         tab1, tab2, tab3, tab4 = st.tabs([
-            "Initial Input",
-            "Kinetics Main Plot",
-            "Kinetics Rate",
+            "Data Upload",
+            "Kinetics and Analyte Ratio",
+            "Initial Rate",
             "Utilities"])
         with tab1:
             st.image(str(instruction_paths[0]))

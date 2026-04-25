@@ -31,7 +31,7 @@ def build_ratio_figure(
 
     df[reaction_col] = df[reaction_col].astype(str)
     # Match main kinetics: compare normalized label (independent of main page chart type).
-    is_line = str(chart_type or "").strip().casefold() == "line"
+    is_line = str(chart_type or "").strip().lower() == "line"
     # Order points for connected line traces
     if is_line:
         df = df.sort_values([reaction_col, "time"])

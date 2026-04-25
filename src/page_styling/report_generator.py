@@ -122,10 +122,29 @@ def _df_to_png(
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label or select_meas)
     ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=14)
-    ax.legend(title=color_col, bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
+    leg = ax.legend(
+        title=color_col,
+        bbox_to_anchor=(1.01, 1),
+        loc="upper left",
+        fontsize=10,
+        title_fontsize=10,
+        frameon=True,
+        fancybox=True,
+        framealpha=0.95,
+        facecolor="white",
+        edgecolor="#666666",
+        markerscale=1.2,
+        handletextpad=0.6,
+        borderpad=0.6,
+        labelspacing=0.4,
+    )
+    if leg is not None:
+        for t in leg.get_texts():
+            t.set_color("#111111")
+        leg.get_title().set_color("#111111")
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150)
+    fig.savefig(buf, format="png")
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -146,10 +165,24 @@ def _history_item_to_png(item: dict) -> bytes:
     ax.set_title(
         f"Reaction {item['reaction']} - {analyte} ({item['profile_type']})", fontsize=11
     )
-    ax.legend(fontsize=8)
+    leg = ax.legend(
+        fontsize=10,
+        frameon=True,
+        fancybox=True,
+        framealpha=0.95,
+        facecolor="white",
+        edgecolor="#666666",
+        markerscale=1.2,
+        handletextpad=0.6,
+        borderpad=0.6,
+        labelspacing=0.4,
+    )
+    if leg is not None:
+        for t in leg.get_texts():
+            t.set_color("#111111")
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150)
+    fig.savefig(buf, format="png")
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -187,7 +220,7 @@ def generate_report_pdf(
         n_items = max(1, len(reaction_rows), len(well_info))
         try:
             # Higher DPI + width-only embed keeps the plate sharp (fixed w+h distorts aspect).
-            plate_png = generate_plate_png(well_info, color_by, n_items, dpi=220)
+            plate_png = generate_plate_png(well_info, color_by, n_items)
             pdf.set_font("Helvetica", "B", 13)
             pdf.cell(0, 8, "Reaction Plate Map", new_x="LMARGIN", new_y="NEXT")
             pdf.ln(2)

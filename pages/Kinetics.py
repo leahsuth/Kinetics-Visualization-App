@@ -67,6 +67,7 @@ with st.spinner("Loading data..."):
 
 # Collect one entry per selected reaction for the PDF report
 reaction_plot_data = []
+analyte_ratio_plot_data = []
 
 
 # ----Plotting----------------------------------------
@@ -189,6 +190,9 @@ if is_preprocessed:
             colorblind_shapes=colorblind_shapes,
         )
 
+    ratio_df = pd.DataFrame()
+    ratio_numerator = ""
+    ratio_denominator = ""
     generate_ratio_plot = st.radio(
         "Generate analyte ratio plot?",
         ["No", "Yes"],
@@ -263,6 +267,22 @@ if is_preprocessed:
                 st.warning(err)
             else:
                 st.plotly_chart(fig, use_container_width=True)
+
+        # Collect analyte-ratio entries for PDF report
+        for rxn in selected_reactions:
+            df_ratio_rxn = ratio_df[ratio_df["Reaction"].astype(str) == str(rxn)]
+            if df_ratio_rxn.empty:
+                continue
+            analyte_ratio_plot_data.append({
+                "reaction": rxn,
+                "df": df_ratio_rxn,
+                "numerator": numerator,
+                "denominator": denominator,
+                "color_by": "Reaction",
+                "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
+                "x_label": f"Time ({time_unit})",
+                "y_label": ratio_label,
+            })
 
     # Collect one entry per selected reaction for the PDF report
     for rxn in selected_reactions:
@@ -416,6 +436,9 @@ else:
         st.plotly_chart(fig, use_container_width=True)
     
     # ----Analyte Ratio Plot----------------------------------------
+    ratio_df = pd.DataFrame()
+    ratio_numerator = ""
+    ratio_denominator = ""
     generate_ratio_plot = st.radio(
         "Generate analyte ratio plot?",
         ["No", "Yes"],
@@ -494,6 +517,22 @@ else:
                 st.warning(err)
             else:
                 st.plotly_chart(fig, use_container_width=True)
+
+        # Collect analyte-ratio entries for PDF report
+        for rxn in selected_reactions:
+            df_ratio_rxn = ratio_df[ratio_df["reaction"].astype(str) == str(rxn)]
+            if df_ratio_rxn.empty:
+                continue
+            analyte_ratio_plot_data.append({
+                "reaction": rxn,
+                "df": df_ratio_rxn,
+                "numerator": numerator,
+                "denominator": denominator,
+                "color_by": "reaction",
+                "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
+                "x_label": f"Time ({time_unit})",
+                "y_label": ratio_label,
+            })
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
@@ -828,6 +867,7 @@ if True:
             hplc_file_name=st.session_state.get("hplc_file_name", "-"),
             plot_history=st.session_state.get("kinetics_plot_history", []),
             reaction_plots=reaction_plot_data,
+            analyte_ratio_plots=analyte_ratio_plot_data,
             rate_summaries=rate_summaries,
         )
         st.download_button(

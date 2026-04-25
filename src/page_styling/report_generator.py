@@ -34,6 +34,38 @@ def _df_to_png(
     buf.seek(0)
     return buf.getvalue()
 
+def analyte_ratio_to_png(
+    df,
+    color_by: str, 
+    title_text: str, 
+    x_label: str, 
+    y_label: str,
+    chart_type: str = "Scatter",
+) -> bytes:
+    """Render the analyte ratio dataframe as a matplotlib PNG."""
+    fig, ax = plt.subplots(figsize=(11, 4.5))
+
+    color_col = color_by if color_by in df.columns else (
+        "reactant" if "reactant" in df.columns else df.columns[0]
+    )
+    is_line = str(chart_type or "").strip().lower() == "line"
+    for label, group in df.groupby(color_col):
+        group = group.sort_values("time")
+        if is_line:
+            ax.plot(group["time"], group["analyte_ratio"], marker="o", label=str(label))
+        else:
+            ax.scatter(group["time"], group["analyte_ratio"], label=str(label))
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(title_text or "Analyte Ratio vs. Time", fontsize=14)
+    ax.legend(title=color_col, bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
 
 def _history_item_to_png(item: dict) -> bytes:
     """Render a single plot-history entry (data + fitted curve) as a matplotlib PNG."""
@@ -64,6 +96,7 @@ def generate_report_pdf(
     hplc_file_name: str,
     plot_history: list = None,
     reaction_plots: list = None,
+    analyte_ratio_plots: list = None,
     rate_summaries: list = None,
 ) -> bytes:
     pdf = FPDF()
@@ -100,6 +133,30 @@ def generate_report_pdf(
                 pdf.set_font("Helvetica", "B", 10)
                 pdf.cell(0, 6, f"Reaction {item['reaction']}", new_x="LMARGIN", new_y="NEXT")
                 pdf.image(io.BytesIO(rxn_png), w=160)
+                pdf.ln(4)
+                if pdf.get_y() > 250:
+                    pdf.add_page()
+            except Exception:
+                pass
+
+    # ── Analyte ratio plots ───────────────────────────────────────────────
+    if analyte_ratio_plots:
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 8, "Analyte Ratio Plots", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+        for item in analyte_ratio_plots:
+            try:
+                ratio_png = analyte_ratio_to_png(
+                    item["df"],
+                    item.get("color_by", item.get("reaction_col", "reaction")),
+                    chart_type=item.get("chart_type", "Scatter"),
+                    title_text=item.get("title_text"),
+                    x_label=item.get("x_label", "Time"),
+                    y_label=item.get("y_label", "Analyte Ratio"),
+                )
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.cell(0, 6, f"Reaction {item['reaction']}", new_x="LMARGIN", new_y="NEXT")
+                pdf.image(io.BytesIO(ratio_png), w=160)
                 pdf.ln(4)
                 if pdf.get_y() > 250:
                     pdf.add_page()

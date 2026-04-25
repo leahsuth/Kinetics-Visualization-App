@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 def input_page_setup():
     st.markdown(
         """
@@ -30,6 +31,7 @@ def input_page_setup():
         unsafe_allow_html=True,
     )
 
+
 def setup_header():
     st.markdown("""
         <style>
@@ -48,11 +50,12 @@ def setup_header():
             box-shadow: 0 4px 12px rgba(0,122,115,0.2);
         ">
             <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em;">Experiment Setup</h1>
-            <p style="margin: 0.4rem; font-size: 1rem; opacity: 0.88;">Upload your conditions and HPLC files, configure reactions, then save to proceed.</p>
+            <p style="margin: 0.4rem; font-size: 1rem; opacity: 0.88;">Upload conditions plus either ChemStation HPLC data or processed measurements, configure reactions, then save to proceed.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
 
 def step_label(number, label):
     st.markdown(
@@ -63,6 +66,7 @@ def step_label(number, label):
         unsafe_allow_html=True,
     )
 
+
 def data_source_help_text():
     with st.expander("Which data source type should I choose?", expanded=False):
         st.markdown(
@@ -70,18 +74,22 @@ def data_source_help_text():
 **ChemStation** — Use this when you are working from **Agilent ChemStation exports**
 and want the app to tie experiments to a **conditions** spreadsheet.
 
-- You upload **two** files: experiment conditions (`.xlsx`) and HPLC results (`.xlsx`).
-- You map reactions, wells, and timepoints, and can use the **plate editor**.
+- You upload **two** files: experiment conditions and HPLC results.
+- In the conditions file: map reactions, wells, and timepoints. 
+- For the HPLC File: Upload directly from ChemStation
 
-**Processed** — Use this when you already have **tabular kinetics** ready to plot, but want the same
-**conditions + plate workflow** as ChemStation.
+**Processed** — Use this when you already have **processed kinetics data** ready to plot. This data
+should include a **Reaction** column and **time** column, with one column per analyte.
 
-- You upload **two** files: experiment conditions (`.xlsx`, same layout as ChemStation) and **processed measurements** (`.csv` or `.xlsx`).
-- Conditions define **reaction IDs**, **timepoints**, optional **Reaction_Well** for plate analysis, and any extra condition columns.
-- Measurements must include a **Reaction** column matching the conditions file, plus **time** and one column per analyte.
+- You upload **two** files: experiment conditions and **processed measurements**.
+- Conditions define **reaction IDs**, **# of Timepoints** (per reaction),
+  optional **Reaction_Well** for plate analysis, and any extra condition columns.
+- Processed data must include a **Reaction** column, plus one column per analyte.
+  There should only be one measurement type per file (e.g. all concentration).
 - Open **How processed files should look** below for the measurements layout.
 """
         )
+
 
 def preprocessed_file_example():
     with st.expander("How processed files should look (example table)", expanded=False):
@@ -92,19 +100,20 @@ def preprocessed_file_example():
 
 | Column | Required? | Notes |
 |--------|-----------|-------|
-| **Reaction** | Yes | Must match the **Reaction** IDs in your conditions spreadsheet. |
-| `time`, `Time`, or `timepoint` | Yes | Values must match the **Timepoint** values from conditions (numeric or text, consistently). |
+| **Reaction** | Yes | Must match the **Reaction** IDs present in the conditions spreadsheet. |
+| **Time** | Yes | Time values corresponding to the reaction measurements. |
 | All other numeric columns | At least one | **Analytes** (e.g. product, impurity). |
 
 **Example** (CSV / Excel):
 
-| Reaction | time | ANALYTE_1 | ANALYTE_2 |
+| Reaction | time | ANALYTE1 | ANALYTE2 |
 |----------|------|-----------|-----------|
 | 1 | 0 | 0.10 | 0.90 |
 | 1 | 5 | 0.35 | 0.63 |
 | 2 | 0 | 0.12 | 0.88 |
 | 2 | 5 | 0.40 | 0.58 |
 
-**Legacy single-file mode:** If you open a measurements file **without** a **Reaction** column, the app treats the **first column** as **Sample Name** and assigns reaction numbers when **time decreases** between rows (same behavior as before).
+
+**Validation note:** For Processed mode, the app checks row counts per reaction against **# of Timepoints** in the conditions file.
             """
         )

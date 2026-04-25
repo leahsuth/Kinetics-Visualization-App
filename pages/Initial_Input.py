@@ -2,6 +2,7 @@
 
 import io
 import sys
+import hashlib
 from pathlib import Path
 from typing import List, Optional, Dict
 
@@ -134,6 +135,19 @@ if uploaded is not None:
             st.stop()
         reaction_rows, timepoints, cond_cols = parse_excel(df)
         reaction_rows = apply_plate_mode(reaction_rows)
+
+        # If the uploaded conditions file changes, reset stored plate-editor state.
+        # Otherwise, the editor preserves prior wells and can show stale reactions.
+        fp_bits = []
+        for r in reaction_rows:
+            fp_bits.append(
+                f"{str(r.get('Reaction', '')).strip()}|{str(r.get('Reaction_Well', '')).strip()}"
+            )
+        rxn_fp = hashlib.md5("\n".join(fp_bits).encode("utf-8")).hexdigest()
+        if st.session_state.get("_excel_reaction_fp") != rxn_fp:
+            st.session_state["_excel_reaction_fp"] = rxn_fp
+            st.session_state.pop("excel_plate_well_info", None)
+            st.session_state.pop("excel_plate_active_well", None)
     except Exception as e:
         st.error(str(e))
         st.stop()
@@ -268,16 +282,32 @@ if uploaded is not None:
         if save_preprocessed:
             st.session_state["PREPROCESSED_DATA_DF"] = st.session_state["preprocessed_data_df"]
 
-            st.session_state["experiment_setup"] = {
-                "source": "preprocessed",
-                "timepoints": unique_preserve_order(clean_list(st.session_state["preprocessed_data_df"]["time"].unique())),
-                "condition_columns": [],
-                "reaction_rows": [2],
-                "reactions": [1],
-                "well_info": st.session_state.get(
-                    "preprocessed_plate_well_info", {}),
-                "color_by": "Reaction",
-            }
+            # Use the uploaded conditions file (same as ChemStation path) to build the
+            # plate map + reaction metadata; otherwise the report plate map is empty/stale.
+            st.session_state["data_source_type"] = source_choice
+            well_info = st.session_state.get("excel_plate_well_info") or build_well_info(
+                reaction_rows, cond_cols
+            )
+            updated_rows = [
+                well_info.get(r.get("Reaction_Well", ""), dict(r)) for r in reaction_rows
+            ]
+            for r in updated_rows:
+                if not str(r.get("Notes", "")).strip():
+                    r["Notes"] = "None"
+
+            # Timepoints for processed data come from the processed measurements file.
+            processed_tp = unique_preserve_order(
+                clean_list(st.session_state["preprocessed_data_df"]["time"].unique())
+            )
+
+            st.session_state["experiment_setup"] = finalize_setup(
+                "preprocessed",
+                updated_rows,
+                processed_tp,
+                cond_cols,
+                well_info,
+                color_by,
+            )
             st.success("Setup saved! Head to the Kinetics page to visualize your data.")
 
 # ── Saved setup summary ────────────────────────────────────────────────────

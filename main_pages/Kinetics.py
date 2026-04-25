@@ -634,6 +634,7 @@ for rxn in selected_reactions:
 
 # ---- Rate Summary ----
 st.write("### Rate Summary")
+combined_rows = []
 for rxn in selected_reactions:
     df_pivot = df_rate_by_rxn.get(rxn)
     if df_pivot is None:
@@ -645,6 +646,14 @@ for rxn in selected_reactions:
     st.write(f"**Reaction {rxn}**")
     st.dataframe(summary, width="stretch")
     rate_summaries.append({"reaction": rxn, "summary_df": summary})
+    for _, _row in summary.iterrows():
+        combined_rows.append({
+            "Reaction": rxn,
+            "Analyte": _row["Analyte"],
+            "Rate": _row["Rate"],
+        })
+
+combined_rate_df = pd.DataFrame(combined_rows, columns=["Reaction", "Analyte", "Rate"])
 
 # ---- Fit Plots ----
 st.divider()
@@ -801,6 +810,7 @@ if st.session_state["kinetics_plot_history"]:
             reaction_plots=reaction_plot_data,
             analyte_ratio_plots=analyte_ratio_plot_data,
             rate_summaries=rate_summaries,
+            combined_rate_df=combined_rate_df,
         )
         st.download_button(
             "Download Report (.pdf)",

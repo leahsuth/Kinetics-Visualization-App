@@ -182,6 +182,49 @@ def analyte_ratio_to_png(
     return buf.getvalue()
 
 
+def _heatmap_to_png(pivot: pd.DataFrame) -> bytes:
+    """Render a Reaction x Analyte rate heatmap as a matplotlib PNG."""
+    data = pivot.to_numpy(dtype=float)
+    n_rows, n_cols = data.shape
+    fig_w = max(6.5, 0.9 * n_cols + 3)
+    fig_h = max(3.5, 0.55 * n_rows + 2)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    im = ax.imshow(data, cmap="RdBu_r", aspect="auto")
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels([str(c) for c in pivot.columns], rotation=45, ha="right", fontsize=9)
+    ax.set_yticks(range(n_rows))
+    ax.set_yticklabels([str(r) for r in pivot.index], fontsize=9)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            val = data[i, j]
+            if np.isnan(val):
+                continue
+            ax.text(j, i, f"{val:.3f}", ha="center", va="center",
+                    color="black", fontsize=8)
+    ax.set_xlabel("Analyte")
+    ax.set_ylabel("Reaction")
+    ax.set_title("Initial Rate Heat Map", fontsize=12)
+    fig.colorbar(im, ax=ax, label="Rate")
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def build_rate_heatmap_png(combined_rate_df: pd.DataFrame) -> bytes | None:
+    """Public helper: build a heatmap PNG from the combined rate table."""
+    if combined_rate_df is None or combined_rate_df.empty:
+        return None
+    pivot = combined_rate_df.pivot_table(
+        index="Reaction", columns="Analyte", values="Rate", aggfunc="mean"
+    )
+    if pivot.empty:
+        return None
+    return _heatmap_to_png(pivot)
+
+
 def _history_item_to_png(item: dict) -> bytes:
     """Render a single plot-history entry (data + fitted curve) as a matplotlib PNG."""
     single_df = item["single_df"]
@@ -227,6 +270,8 @@ def generate_report_pdf(
     reaction_plots: list = None,
     analyte_ratio_plots: list = None,
     rate_summaries: list = None,
+    combined_rate_df: "pd.DataFrame | None" = None,
+    heatmap_png: bytes | None = None,
 ) -> bytes:
     pdf = FPDF()
     # Core PDF fonts only — no external .ttf files so export works in Docker/CI.
@@ -286,7 +331,12 @@ def generate_report_pdf(
                 pdf.set_font("Helvetica", "B", 10)
                 pdf.cell(0, 6, f"Reaction {item['reaction']}", new_x="LMARGIN", new_y="NEXT")
                 pdf.image(io.BytesIO(rxn_png), w=160)
-                pdf.ln(4)
+                pdf.ln(2)
+                notes_text = str(item.get("notes") or "").strip()
+                if notes_text and notes_text.lower() != "none":
+                    pdf.set_font("Helvetica", "I", 9)
+                    pdf.multi_cell(0, 5, f"Notes: {notes_text}", new_x="LMARGIN", new_y="NEXT")
+                pdf.ln(2)
                 if pdf.get_y() > 250:
                     pdf.add_page()
             except Exception:
@@ -316,7 +366,7 @@ def generate_report_pdf(
             except Exception:
                 pass
 
-    # ── Rate Summary (Controls table per reaction) ────────────────────────
+    # ── Per-Reaction Rate Summary (one table per reaction) ────────────────
     if rate_summaries:
         pdf.set_font("Helvetica", "B", 13)
         pdf.cell(0, 8, "Rate Summary", new_x="LMARGIN", new_y="NEXT")
@@ -329,6 +379,87 @@ def generate_report_pdf(
             pdf.ln(4)
             if pdf.get_y() > 250:
                 pdf.add_page()
+
+    # ── Combined Rate Summary (single table across all reactions) ─────────
+    if combined_rate_df is not None and not combined_rate_df.empty:
+        # Reorder so Reaction is always first, then preserve remaining columns.
+        _cols = ["Reaction"] + [c for c in combined_rate_df.columns if c != "Reaction"]
+        rt = combined_rate_df.reindex(columns=_cols)
+
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 8, "Combined Rate Summary", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+
+        col_w = min(60, 170 / max(len(rt.columns), 1))
+        header_h = 7
+        row_h = 6
+        teal = (0, 122, 115)
+        alt_fill = (245, 248, 248)
+
+        def _draw_header() -> None:
+            pdf.set_fill_color(*teal)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font("Helvetica", "B", 9)
+            for col in rt.columns:
+                pdf.cell(col_w, header_h, str(col), border=0,
+                         new_x="RIGHT", new_y="TOP", fill=True)
+            pdf.ln()
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Helvetica", "", 9)
+
+        _draw_header()
+        prev_rxn = None
+        group_idx = -1
+        for _, row in rt.iterrows():
+            if pdf.get_y() > 275:
+                pdf.add_page()
+                _draw_header()
+                prev_rxn = None
+
+            this_rxn = row.get("Reaction")
+            if this_rxn != prev_rxn:
+                group_idx += 1
+                prev_rxn = this_rxn
+                show_rxn = True
+            else:
+                show_rxn = False
+
+            if group_idx % 2 == 1:
+                pdf.set_fill_color(*alt_fill)
+                fill = True
+            else:
+                pdf.set_fill_color(255, 255, 255)
+                fill = True
+
+            for col in rt.columns:
+                val = row[col]
+                if col == "Reaction":
+                    cell_str = str(val) if show_rxn else ""
+                elif isinstance(val, float) and not np.isnan(val):
+                    cell_str = f"{val:.4f}"
+                elif isinstance(val, float):
+                    cell_str = "-"
+                elif val is None:
+                    cell_str = "-"
+                else:
+                    cell_str = str(val)
+                pdf.cell(col_w, row_h, cell_str, border="B",
+                         new_x="RIGHT", new_y="TOP", fill=fill)
+            pdf.ln()
+        pdf.ln(4)
+
+    # ── Rate heat map (optional) ──────────────────────────────────────────
+    if heatmap_png:
+        if pdf.get_y() > 180:
+            pdf.add_page()
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 8, "Initial Rate Heat Map", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+        try:
+            pdf.image(io.BytesIO(heatmap_png), w=170)
+            pdf.ln(4)
+        except Exception:
+            pass
 
     # ── Per-reaction fitted plots + rate tables ───────────────────────────
     if plot_history:

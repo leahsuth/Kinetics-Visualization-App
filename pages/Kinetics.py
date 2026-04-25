@@ -8,6 +8,7 @@ from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.page_styling.rate_information import profile_picker
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
+from src.figures.analyte_ratio_graph import (build_ratio_df, build_ratio_long_df, build_ratio_figure)
 from src.parsing.plotting_process import plot_process
 from src.regression.rate_calculation import kinetics_fit_initial_rate, exp_func
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
@@ -66,6 +67,7 @@ with st.spinner("Loading data..."):
 
 # Collect one entry per selected reaction for the PDF report
 reaction_plot_data = []
+
 
 # ----Plotting----------------------------------------
 if is_preprocessed:
@@ -135,6 +137,11 @@ if is_preprocessed:
         key="time_series_chart_type",
     )
 
+    colorblind_shapes = st.toggle(
+        "Colorblind-friendly: distinct marker shapes",
+        key="_kinetics_colorblind_shapes",
+    )
+
     multi_plot_choice = st.radio(
         "Generate a plot for every reaction?",
         ["No", "Yes"],
@@ -166,6 +173,7 @@ if is_preprocessed:
                             chart_type=chart_type,
                             time_unit=time_unit,
                             title_suffix=f"Reaction {rxn}",
+                            colorblind_shapes=colorblind_shapes,
                         )
 
     remaining_reactions = [r for r in selected_reactions if r not in reactions_for_plots]
@@ -178,7 +186,83 @@ if is_preprocessed:
             color_select=color_by,
             chart_type=chart_type,
             time_unit=time_unit,
+            colorblind_shapes=colorblind_shapes,
         )
+
+    generate_ratio_plot = st.radio(
+        "Generate analyte ratio plot?",
+        ["No", "Yes"],
+        horizontal=True,
+        key="generate_ratio_plot_preprocessed",
+    )
+    if generate_ratio_plot == "Yes":
+        ratio_chart_type = st.radio(
+            "Chart type",
+            ["Scatter", "Line"],
+            horizontal=True,
+            key="ratio_chart_type_preprocessed",
+        )
+        num_col, denom_col = st.columns(2)
+        with num_col:
+            ratio_numerator = st.selectbox(
+                "Numerator",
+                options=analytes,
+                key="ratio_numerator_preprocessed",
+            )
+        with denom_col:
+            denominator_options = [a for a in analytes if a != ratio_numerator]
+            ratio_denominator = st.selectbox(
+                "Denominator",
+                options=denominator_options if denominator_options else analytes,
+                key="ratio_denominator_preprocessed",
+            )
+
+        numerator, denominator = ratio_numerator, ratio_denominator
+        ratio_label = f"{numerator}/{denominator}"
+        ratio_df = build_ratio_df(
+            df=df_preproc_plot,
+            reaction_col="Reaction",
+            numerator=numerator,
+            denominator=denominator,
+        )
+        if ratio_df.empty:
+            st.warning("No data available for the ratio plot.")
+        elif reactions_for_plots:
+            for i in range(0, len(reactions_for_plots), 2):
+                row_reactions = reactions_for_plots[i: i + 2]
+                cols = st.columns(len(row_reactions))
+                for col, rxn in zip(cols, row_reactions):
+                    with col:
+                        df_ratio_rxn = ratio_df[
+                            ratio_df["Reaction"].astype(str) == str(rxn)
+                        ]
+                        fig, err = build_ratio_figure(
+                            df=df_ratio_rxn,
+                            reaction_col="Reaction",
+                            chart_type=ratio_chart_type,
+                            time_unit=time_unit,
+                            title_suffix=f"Reaction {rxn}",
+                            ratio_label=ratio_label,
+                        )
+                        if err:
+                            st.warning(err)
+                        else:
+                            st.plotly_chart(fig, use_container_width=True)
+        else:
+            ratio_remaining = ratio_df[
+                ratio_df["Reaction"].astype(str).isin(remaining_reactions)
+            ]
+            fig, err = build_ratio_figure(
+                df=ratio_remaining,
+                reaction_col="Reaction",
+                chart_type=ratio_chart_type,
+                time_unit=time_unit,
+                ratio_label=ratio_label,
+            )
+            if err:
+                st.warning(err)
+            else:
+                st.plotly_chart(fig, use_container_width=True)
 
     # Collect one entry per selected reaction for the PDF report
     for rxn in selected_reactions:
@@ -286,6 +370,11 @@ else:
         horizontal=True,
     )
 
+    colorblind_shapes = st.toggle(
+        "Colorblind-friendly: distinct marker shapes",
+        key="_kinetics_colorblind_shapes",
+    )
+
     reactions_for_plots: list[str] = []
     if multi_plot_choice == "Yes":
         reactions_for_plots = st.multiselect(
@@ -309,6 +398,7 @@ else:
                             chart_type=chart_type,
                             title_suffix=f"Reaction {rxn}",
                             time_unit=time_unit,
+                            colorblind_shapes=colorblind_shapes,
                         )
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -321,8 +411,89 @@ else:
             color_select=color_by,
             chart_type=chart_type,
             time_unit=time_unit,
+            colorblind_shapes=colorblind_shapes,
         )
         st.plotly_chart(fig, use_container_width=True)
+    
+    # ----Analyte Ratio Plot----------------------------------------
+    generate_ratio_plot = st.radio(
+        "Generate analyte ratio plot?",
+        ["No", "Yes"],
+        horizontal=True,
+        key="generate_ratio_plot_hplc",
+    )
+    if generate_ratio_plot == "Yes":
+        ratio_chart_type = st.radio(
+            "Chart type",
+            ["Scatter", "Line"],
+            horizontal=True,
+            key="ratio_chart_type_hplc",
+        )
+        num_col, denom_col = st.columns(2)
+        with num_col:
+            ratio_numerator = st.selectbox(
+                "Numerator",
+                options=analytes,
+                key="ratio_numerator_hplc",
+            )
+        with denom_col:
+            denominator_options = [a for a in analytes if a != ratio_numerator]
+            ratio_denominator = st.selectbox(
+                "Denominator",
+                options=denominator_options if denominator_options else analytes,
+                key="ratio_denominator_hplc",
+            )
+
+        numerator, denominator = ratio_numerator, ratio_denominator
+        ratio_label = f"{numerator}/{denominator}"
+        ratio_analytes = [numerator, denominator]
+        ratio_df = build_ratio_long_df(
+            df=df_plot,
+            reaction_col="reaction",
+            reactant_col="reactant",
+            value_col=selected_measurements,
+            ratio_analytes=ratio_analytes,
+            numerator=numerator,
+            denominator=denominator,
+        )
+        if ratio_df.empty:
+            st.warning("No data available for the ratio plot.")
+        elif reactions_for_plots:
+            for i in range(0, len(reactions_for_plots), 2):
+                row_reactions = reactions_for_plots[i: i + 2]
+                cols = st.columns(len(row_reactions))
+                for col, rxn in zip(cols, row_reactions):
+                    with col:
+                        df_ratio_rxn = ratio_df[
+                            ratio_df["reaction"].astype(str) == str(rxn)
+                        ]
+                        fig, err = build_ratio_figure(
+                            df=df_ratio_rxn,
+                            reaction_col="reaction",
+                            chart_type=ratio_chart_type,
+                            time_unit=time_unit,
+                            title_suffix=f"Reaction {rxn}",
+                            ratio_label=ratio_label,
+                        )
+                        if err:
+                            st.warning(err)
+                        else:
+                            st.plotly_chart(fig, use_container_width=True)
+        else:
+            ratio_remaining = ratio_df[
+                ratio_df["reaction"].astype(str).isin(remaining_reactions)
+            ]
+            fig, err = build_ratio_figure(
+                df=ratio_remaining,
+                reaction_col="reaction",
+                chart_type=ratio_chart_type,
+                time_unit=time_unit,
+                ratio_label=ratio_label,
+            )
+            if err:
+                st.warning(err)
+            else:
+                st.plotly_chart(fig, use_container_width=True)
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)

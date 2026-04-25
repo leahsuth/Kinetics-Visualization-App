@@ -122,27 +122,34 @@ def _edit_well_dialog(well_id: str, info: Dict[str, dict], key_prefix: str) -> N
             label_visibility="collapsed",
         )
     with cc2:
-        if st.button("Reset", key=f"{key_prefix}_dlg_reset_{well_id}", use_container_width=True):
+        if st.button("Reset", key=f"{key_prefix}_dlg_reset_{well_id}", width="stretch"):
             d["_custom_color"] = "#EDEDED"
 
     st.markdown("")
     b1, b2 = st.columns(2)
     with b1:
-        if st.button("Save", type="primary", use_container_width=True, key=f"{key_prefix}_dlg_save_{well_id}"):
+        if st.button("Save", type="primary", width="stretch", key=f"{key_prefix}_dlg_save_{well_id}"):
             info[well_id] = d
             st.session_state[f"{key_prefix}_well_info"] = info
             st.session_state[f"{key_prefix}_active_well"] = None
             st.rerun()
     with b2:
-        if st.button("Cancel", use_container_width=True, key=f"{key_prefix}_dlg_cancel_{well_id}"):
+        if st.button("Cancel", width="stretch", key=f"{key_prefix}_dlg_cancel_{well_id}"):
             st.session_state[f"{key_prefix}_active_well"] = None
             st.rerun()
 
 
-def generate_plate_png(info: Dict[str, dict], color_by: str, n_items: int) -> bytes:
-    """Generate plate map as PNG bytes using matplotlib, suitable for download."""
+def generate_plate_png(
+    info: Dict[str, dict], color_by: str, n_items: int
+) -> bytes:
+    """
+    Generate plate map as PNG bytes using matplotlib, suitable for download or PDF.
+    """
     wells = sorted(info.keys(), key=lambda w: (_well_to_rc(w) or (99, 99)))
     num_rows, num_cols = compute_plate_dims(max(1, int(n_items)), wells_hint=wells)
+    # Always show at least an 8x8 footprint (A-H, 1-8).
+    num_rows = max(num_rows, 8)
+    num_cols = max(num_cols, 12)
     rows = list_of_letters(num_rows)
     cols = list(range(1, num_cols + 1))
 
@@ -153,11 +160,13 @@ def generate_plate_png(info: Dict[str, dict], color_by: str, n_items: int) -> by
     W = pad * 2 + lw + num_cols * cell
     H = pad * 2 + lh + num_rows * cell
 
-    fig, ax = plt.subplots(figsize=(8, 8), dpi=100)
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
     ax.set_xlim(0, W)
     ax.set_ylim(0, H)
     ax.invert_yaxis()
-    ax.axis('off')
+    # W != H (more columns than rows); without equal aspect, circles become ovals in PNG/PDF.
+    ax.set_aspect("equal", adjustable="box")
+    ax.axis("off")
 
     # Draw background
     rect = patches.FancyBboxPatch((0, 0), W, H, boxstyle="round,pad=1", 
@@ -197,7 +206,13 @@ def generate_plate_png(info: Dict[str, dict], color_by: str, n_items: int) -> by
                        fontsize=7, fontweight='bold', color='#333')
 
     buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor='white', edgecolor='none')
+    fig.savefig(
+        buf,
+        format="png",
+        bbox_inches="tight",
+        facecolor="white",
+        edgecolor="none",
+    )
     buf.seek(0)
     plt.close(fig)
     return buf.getvalue()
@@ -288,10 +303,13 @@ def render_plate_editor_modal(
     active = st.session_state[f"{key_prefix}_active_well"]
     wells = sorted(info.keys(), key=lambda w: (_well_to_rc(w) or (99, 99)))
     num_rows, num_cols = compute_plate_dims(max(1, int(n_items)), wells_hint=wells)
+    # Keep the interactive editor aligned with exported PNG minimum size.
+    num_rows = max(num_rows, 8)
+    num_cols = max(num_cols, 12)
 
     rows = list_of_letters(num_rows)
     cols = [str(i) for i in range(1, num_cols + 1)]
-    col_weights = [0.38] + [1] * num_cols
+    col_weights = [0.32] + [1] * num_cols
 
     def well_color(w: str) -> str:
         d = info.get(w, {})
@@ -315,18 +333,18 @@ def render_plate_editor_modal(
     header_cols[0].markdown("")
     for idx, col_num in enumerate(cols):
         header_cols[idx + 1].markdown(
-            f"<div style='text-align:center;font-weight:700;font-size:0.92rem;"
+            f"<div style='text-align:center;font-weight:700;font-size:0.84rem;"
             f"color:rgba(49,51,63,.45);'>{col_num}</div>",
             unsafe_allow_html=True,
         )
 
     well_colors: Dict[str, str] = {}
-    well_px = 56
+    well_px = 46
     for r in rows:
         row_cols = st.columns(col_weights)
         row_cols[0].markdown(
-            f"<div style='text-align:right;padding-right:6px;padding-top:16px;"
-            f"font-weight:700;font-size:0.98rem;color:rgba(49,51,63,.55);'>{r}</div>",
+            f"<div style='text-align:right;padding-right:6px;padding-top:12px;"
+            f"font-weight:700;font-size:0.90rem;color:rgba(49,51,63,.55);'>{r}</div>",
             unsafe_allow_html=True,
         )
         for i, c in enumerate(cols):

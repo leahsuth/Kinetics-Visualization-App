@@ -23,6 +23,6 @@ COPY . .
 EXPOSE 8501
 
 # Command to run the application when the container starts
-CMD [ "streamlit", "run", "Welcome.py" ]
+CMD [ "streamlit", "run", "main.py" ]
 # CMD ["streamlit", "run", "your_app_name.py", "--server.port=8501", "--server.address=0.0.0.0"]
 

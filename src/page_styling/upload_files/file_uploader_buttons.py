@@ -36,29 +36,19 @@ def experiment_conditions_button(
                 data=template_bytes_fn(),
                 file_name="experiment_template.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
                 key="experiment_conditions_template_dl",
             )
 
-        with st.popover("Template guide", use_container_width=True):
-            if HPLC:
-                st.markdown(
-                    "| Column | Required? | Notes |\n"
-                    "|---|---|---|\n"
-                    "| **Timepoint** | Yes | One row per timepoint (**this column is NOT associated with the reaction rows**) |\n"
-                    "| **Reaction** | Yes | Unique reaction ID |\n"
-                    "| Reaction_Well | Optional | e.g. A1, B3 (used for plate visualization) |\n"
-                    "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
-                )
-            else:
-                st.markdown(
-                    "| Column | Required? | Notes |\n"
-                    "|---|---|---|\n"
-                    "| **Reaction** | Yes | Unique reaction ID |\n"
-                    "| **# of Timepoints** | Yes | Number of timepoints for the reaction |\n"
-                    "| Reaction_Well | Optional | e.g. A1, B3 (used for plate visualization) |\n"
-                    "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
-                )
+        with st.popover("Template guide", width="stretch"):
+            st.markdown(
+                "| Column | Required? | Notes |\n"
+                "|---|---|---|\n"
+                "| **Reaction** | Yes | Unique reaction ID |\n"
+                "| **Timepoint** | Yes | One row per timepoint |\n"
+                "| **Reaction_Well** | Yes | e.g. A1, B3 |\n"
+                "| Any custom name | Optional | Add as many condition columns as needed (e.g. Ligand, Catalyst, Solvent) |"
+            )
 
         uploaded = st.file_uploader(
             "Upload conditions (.xlsx, .csv)",

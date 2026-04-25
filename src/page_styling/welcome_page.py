@@ -5,66 +5,46 @@ import streamlit as st
 
 
 def larger_banner(title, subtitle=None):
-    st.markdown(
-        f"""
-    <div style="
-        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-        color: white;
-        padding: 1rem;
-        margin: 0 -1rem 1rem -1rem;
-        text-align: center;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,122,115,0.2);
-    ">
-        <h1 style="margin: 0; font-size: 3.0rem; font-weight: 700; letter-spacing: -0.02em;">{title}</h1>
-        {f'<p style="margin: 0.5rem 0 0; font-size: 2.0rem; opacity: 0.9;">{subtitle}</p>' if subtitle else ""}
+    st.html(
+    f"""
+    <div class="larger-banner">
+        <h1>{title}</h1>
+        {f'<p>{subtitle}</p>' if subtitle else ""}
     </div>
-    """,
-        unsafe_allow_html=True,
+    """
     )
 
-
-def about_banner(title, subtitle=None, full_width=False):
-    width = "100%" if full_width else "85%"
-    margin = "0 0 1rem 0" if full_width else "0 auto 1rem"
-    st.markdown(
-        f"""
-    <div style="
-        background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-        color: white;
-        padding: 0.5rem 0.9rem;
-        margin: {margin};
-        width: {width};
-        text-align: center;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
-    ">
-        <h1 style="margin: 0; font-size: 1rem; font-weight: 700;">{title}</h1>
+def about_banner(title):
+    st.html(
+    f"""
+    <div class="about-banner">
+        <h1>{title}</h1>
     </div>
-    """,
-        unsafe_allow_html=True,
+    """
     )
 
-
-def about_main_body(title, subtitle=None):
-    st.markdown(
-        f"""
-    <div style="
-        background: white;
-        color: black;
-        padding: 0.5rem 0.9rem;
-        margin: 0 auto 1rem;
-        width: 85%;
-        text-align: left;
-        border-radius: 0 0 6px 6px;
-        box-shadow: 0 4px 6px rgba(0,122,115,0.2);
-    ">
-        <div style="margin: 0; font-size: 1.1rem;">{title}</div>
+def about_main_body():
+    st.html(
+    """
+    <div class="about-main-body">
+        <div class="about-banner">About</div>
+        <div class="about-content">
+            This app is designed to streamline and automate the process 
+            of visualizing and analyzing kinetic data from HPLC experiments. 
+            Currently, it supports the following features:<br><br>
+            <ul>
+                <li>Generating plate layouts from reaction conditions</li>
+                <li>Graphing Peak Area over Time</li>
+                <li>Graphing Peak Area Percent over Time</li>
+                <li>Calculating initial rates </li>
+                <li>Graphing exponential fit of reactions</li>
+                <li>Downloading plots as PNGs</li>
+                <li>Solving common laboratory calculations</li>
+            </ul>
+       </div>
     </div>
-   """,
-        unsafe_allow_html=True,
+   """
     )
-
 
 def excel_template_bytes() -> bytes:
     df = pd.DataFrame(
@@ -96,3 +76,22 @@ def excel_template_bytes() -> bytes:
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Experiment")
     return buf.getvalue()
+
+@st.dialog("Application Instructions", width="medium")
+def help_dialog(instruction_paths):
+    if instruction_paths:
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Initial Input",
+            "Kinetics Main Plot",
+            "Kinetics Rate",
+            "Utilities"])
+        with tab1:
+            st.image(str(instruction_paths[0]))
+        with tab2:
+            st.image(str(instruction_paths[1]))
+        with tab3:
+            st.image(str(instruction_paths[2]))
+        with tab4:
+            st.image(str(instruction_paths[3]))
+    else:
+        st.error("Path Error, help images not found")

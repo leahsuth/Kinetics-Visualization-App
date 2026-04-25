@@ -4,7 +4,6 @@ import io
 import sys
 import hashlib
 from pathlib import Path
-from typing import List, Optional, Dict
 
 import pandas as pd
 import streamlit as st
@@ -48,7 +47,10 @@ if str(ROOT) not in sys.path:
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
-input_page_markdown.input_page_setup()
+with open("index.css", "r") as file:
+    css = file.read()
+
+st.html(f"<style>{css}</style>")
 
 input_page_markdown.setup_header()
 
@@ -235,7 +237,6 @@ if uploaded is not None:
                     data=plate_png,
                     file_name="plate_map.png",
                     mime="image/png",
-                    use_container_width=True,
                     key="excel_dl_png",
                 )
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
@@ -268,7 +269,7 @@ if uploaded is not None:
                     rxn_df_norm, on="Reaction", how="left", suffixes=("", "_rxn")
                 )
                 st.session_state["cat_loading_df"] = annotated_df
-            st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+            st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
 
     elif source_choice == "Processed":
         save_preprocessed = st.button(
@@ -308,14 +309,15 @@ if uploaded is not None:
                 well_info,
                 color_by,
             )
-            st.success("Setup saved! Head to the Kinetics page to visualize your data.")
+            st.toast("Setup saved! Head to the Kinetics page to visualize your data.")
 
 # ── Saved setup summary ────────────────────────────────────────────────────
 
 if st.button(
     "📈  Visualize data and initial rates →",
     type="primary",
-    use_container_width=True,
+    width="stretch",
     key="cta_kinetics",
 ):
-    st.switch_page("pages/Kinetics.py")
+    st.switch_page("main_pages/Kinetics.py")
+

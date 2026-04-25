@@ -31,6 +31,6 @@ def sync_kinetics_plot_history(history, k_constant, time_unit, y_measure_label):
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=single_df["time"], y=single_df[analyte], mode="markers", name="data"))
         fig.add_trace(go.Scatter(x=t_fine, y=y_fit, mode="lines", name="fitted curve", line=dict(color="#E53935", width=2)))
-        fig.update_layout(title=f"{analyte} - Reaction {rxn}", xaxis_title=f"Time ({time_unit})", yaxis_title=y_measure_label,
-        width=400, height=250)
+        fig.update_layout(xaxis_title=f"Time ({time_unit})", yaxis_title=y_measure_label,
+        width=400, height=400)
         item["fig"] = fig

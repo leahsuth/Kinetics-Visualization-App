@@ -1,93 +1,52 @@
 import streamlit as st
 
 
-def input_page_setup():
-    st.markdown(
-        """
-        <style>
-        .block-container { padding-top: 0; padding-bottom: 2rem; max-width: 1200px; }
-        div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
-        .section-label {
-            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
-            text-transform: uppercase; color: rgba(49,51,63,.45); margin-bottom: 4px;
-        }
-        .step-row {
-            display: flex; align-items: center; gap: 10px; margin: 1.2rem 0 0.4rem 0;
-        }
-        .step-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #007A73; color: white;
-            font-size: 0.82rem; font-weight: 700; flex-shrink: 0;
-        }
-        .step-title {
-            font-size: 1.05rem; font-weight: 700; color: #1f2937; margin: 0;
-        }
-        .upload-card-label {
-            font-size: 1rem; font-weight: 700; margin-bottom: 2px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def setup_header():
-    st.markdown("""
-        <style>
-        .block-container { max-width: 80%; }
-        </style>
-        """, unsafe_allow_html=True)
-    st.markdown(
+    st.html(
         """
-        <div style="
-            background: linear-gradient(135deg, #007A73 0%, #005a55 100%);
-            color: white;
-            padding: 1rem;
-            margin: 2rem;
-            text-align: center;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,122,115,0.2);
-        ">
-            <h1 style="margin: 0; font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em;">Experiment Setup</h1>
-            <p style="margin: 0.4rem; font-size: 1rem; opacity: 0.88;">Upload conditions plus either ChemStation HPLC data or processed measurements, configure reactions, then save to proceed.</p>
+        <div class="setup-header">
+            <h1>Experiment Setup</h1>
+            <p >Upload your conditions and HPLC files, configure reactions, then save to proceed.</p>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
 def step_label(number, label):
-    st.markdown(
-        "<div class='step-row'>"
-        f"<span class='step-badge'>{number}</span>"
-        f"<span class='step-title'>{label}</span>"
-        "</div>",
-        unsafe_allow_html=True,
+    st.html(
+        f"""
+        <div class='step-row'>
+        <span class='step-badge'>{number}</span>
+        <span class='step-title'>{label}</span>
+        </div>
+        """
     )
 
 
 def data_source_help_text():
     with st.expander("Which data source type should I choose?", expanded=False):
-        st.markdown(
+        st.html(
             """
-**ChemStation** — Use this when you are working from **Agilent ChemStation exports**
-and want the app to tie experiments to a **conditions** spreadsheet.
-
-- You upload **two** files: experiment conditions and HPLC results.
-- In the conditions file: map reactions, wells, and timepoints. 
-- For the HPLC File: Upload directly from ChemStation
-
-**Processed** — Use this when you already have **processed kinetics data** ready to plot. This data
-should include a **Reaction** column and **time** column, with one column per analyte.
-
-- You upload **two** files: experiment conditions and **processed measurements**.
-- Conditions define **reaction IDs**, **# of Timepoints** (per reaction),
-  optional **Reaction_Well** for plate analysis, and any extra condition columns.
-- Processed data must include a **Reaction** column, plus one column per analyte.
-  There should only be one measurement type per file (e.g. all concentration).
-- Open **How processed files should look** below for the measurements layout.
-"""
+            <div class="data-source-help-text">
+                <div>
+                    <h2>ChemStation</h2>Use this when you are working from <b>Agilent ChemStation exports</b>
+                    and want the app to tie experiments to a <b>conditions</b> spreadsheet.
+                    <ul>
+                        <li>You upload <b>two</b> files: experiment conditions (<code>.xlsx</code>) and HPLC results (<code>.xlsx</code>).</li>
+                        <li>You map reactions, wells, and timepoints, and can use the <b>plate editor</b>.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h2>Processed</h2>Use this when you already have a <b>single table</b> of kinetics that is
+                    <b>ready to plot</b> (time column + one column per analyte).
+                    <ul>
+                        <li>You upload <b>one</b> file (<code>.csv</code> or <code>.xlsx</code>); no separate conditions file.</li>
+                        <li>Reactions are inferred from the file (e.g. when time resets between runs).</li>
+                        <li>Open How processed files should look below for an example table layout.</li>
+                    </ul>
+                </div>
+            </div>
+            """
         )
 
 

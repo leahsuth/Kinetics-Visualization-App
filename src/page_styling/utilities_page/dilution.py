@@ -46,7 +46,7 @@ def dilution_widget():
 
         with results:
             calc = st.button("Calculate Scheme", type="primary")
-            clear = st.button("Clear", type="secondary")
+            clear = st.button("Clear", type="secondary", key="clear-results-button")
 
         if calc:
             df_results = calculate_serial_dilution(stock_conc, target_conc, num_steps, total_vol)
@@ -54,7 +54,7 @@ def dilution_widget():
             if df_results is not None:
                 st.divider()
                 st.subheader("Dilution Scheme")
-                st.dataframe(df_results, use_container_width=True, hide_index=True)
+                st.dataframe(df_results, width="stretch", hide_index=True)
                 
                 st.info(f"Required Dilution Factor per step: **{round((stock_conc/target_conc)**(1/num_steps), 2)}x**")
 

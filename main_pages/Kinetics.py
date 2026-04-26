@@ -1,4 +1,5 @@
 import io
+import html
 from collections import defaultdict
 
 import numpy as np
@@ -13,7 +14,6 @@ from src.figures.analyte_ratio_graph import (
 )
 from src.figures.graph_preprocessed_data import graph_preprocessed_data
 from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
-from src.page_styling.kinetics_page.exporting import export_button_layout
 from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
 from src.page_styling.rate_information import build_rate_summary, profile_picker
 from src.page_styling.report_generator import generate_report_pdf, build_rate_heatmap_png
@@ -22,6 +22,98 @@ from src.parsing.plotting_process import plot_process
 from src.parsing.process_preprocessed_data import process_preprocessed_data
 from src.regression.rate_calculation import exp_func, kinetics_fit_initial_rate
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
+
+
+def _format_rate_cell(val) -> str:
+    """Format a rate value for display; show an em-dash when missing."""
+    try:
+        if val is None or pd.isna(val):
+            return '<span style="color:#9aa3a3;">&mdash;</span>'
+    except Exception:
+        pass
+    try:
+        return f"{float(val):.4f}"
+    except Exception:
+        return str(val)
+
+
+def _render_combined_rate_table_html(df: pd.DataFrame) -> str:
+    """Render the combined rate table as a polished HTML table.
+
+    The Reaction column is visually merged across consecutive rows that share
+    the same reaction, using `rowspan`, so the label is not repeated.
+    """
+    TEAL = "#007A73"
+    DARK_TEAL = "#005a55"
+    TEAL_TINT = "#eef6f5"
+    BORDER = "#d7dedd"
+    ALT_ROW = "#fafbfb"
+
+    css = (
+        "<style>"
+        ".rate-table-wrap{display:block;border:1px solid " + BORDER + ";"
+        "border-radius:10px;overflow-y:auto;overflow-x:hidden;"
+        "max-height:380px;width:100%;max-width:100%;box-sizing:border-box;"
+        "box-shadow:0 1px 3px rgba(0,0,0,0.04);"
+        "margin:6px 0 14px 0;background:white;}"
+        ".rate-table{border-collapse:separate;border-spacing:0;width:100%;"
+        "max-width:100%;table-layout:fixed;font-size:0.9rem;"
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,"
+        "'Helvetica Neue',Arial,sans-serif;color:#1f2626;}"
+        ".rate-table thead th{background:linear-gradient(135deg," + TEAL + " 0%,"
+        + DARK_TEAL + " 100%);color:white;padding:10px 12px;text-align:center;"
+        "font-weight:600;letter-spacing:0.04em;text-transform:uppercase;"
+        "font-size:0.85rem;position:sticky;top:0;z-index:1;}"
+        ".rate-table tbody td{padding:8px 12px;border-top:1px solid " + BORDER + ";"
+        "vertical-align:middle;text-align:center;font-size:0.9rem;"
+        "word-break:break-word;}"
+        ".rate-table tbody tr.alt td{background:" + ALT_ROW + ";}"
+        ".rate-table td.rxn-cell{font-weight:700;color:" + DARK_TEAL + ";"
+        "background:" + TEAL_TINT + " !important;border-right:3px solid " + TEAL + ";"
+        "white-space:nowrap;font-size:1.15rem;letter-spacing:0.02em;}"
+        ".rate-table td.num-cell{font-variant-numeric:tabular-nums;}"
+        ".rate-table tbody tr.group-start td{border-top:2px solid " + TEAL + "22;}"
+        ".rate-table tbody tr:first-child td{border-top:none;}"
+        "</style>"
+    )
+
+    # Preserve the order of reactions as they appear.
+    groups: list[tuple[object, list]] = []
+    for _, row in df.iterrows():
+        rxn = row["Reaction"]
+        if groups and groups[-1][0] == rxn:
+            groups[-1][1].append(row)
+        else:
+            groups.append((rxn, [row]))
+
+    parts = [css, '<div class="rate-table-wrap"><table class="rate-table">']
+    parts.append(
+        "<thead><tr><th>Reaction</th><th>Analyte</th>"
+        "<th>Rate</th></tr></thead><tbody>"
+    )
+    for gi, (rxn_val, rows) in enumerate(groups):
+        alt = "alt" if gi % 2 == 1 else ""
+        rxn_safe = html.escape(str(rxn_val))
+        for ri, row in enumerate(rows):
+            classes: list[str] = []
+            if alt:
+                classes.append(alt)
+            if ri == 0 and gi > 0:
+                classes.append("group-start")
+            cls_attr = f' class="{" ".join(classes)}"' if classes else ""
+            parts.append(f"<tr{cls_attr}>")
+            if ri == 0:
+                rowspan = f' rowspan="{len(rows)}"' if len(rows) > 1 else ""
+                parts.append(
+                    f'<td class="rxn-cell"{rowspan}>{rxn_safe}</td>'
+                )
+            analyte_safe = html.escape(str(row["Analyte"]))
+            parts.append(f"<td>{analyte_safe}</td>")
+            parts.append(f'<td class="num-cell">{_format_rate_cell(row["Rate"])}</td>')
+            parts.append("</tr>")
+    parts.append("</tbody></table></div>")
+    return "".join(parts)
+
 
 st.logo(image='assets/Merck_Logo.png')
 st.set_page_config(
@@ -643,8 +735,6 @@ for rxn in selected_reactions:
     if not rxn_analytes:
         continue
     summary = build_rate_summary(df_pivot, rxn_analytes, k_constant)
-    st.write(f"**Reaction {rxn}**")
-    st.dataframe(summary, width="stretch")
     rate_summaries.append({"reaction": rxn, "summary_df": summary})
     for _, _row in summary.iterrows():
         combined_rows.append({
@@ -654,32 +744,52 @@ for rxn in selected_reactions:
         })
 
 combined_rate_df = pd.DataFrame(combined_rows, columns=["Reaction", "Analyte", "Rate"])
+# Keep rows ordered so rowspan merging shows contiguous reaction groups.
+if not combined_rate_df.empty:
+    combined_rate_df["Reaction"] = combined_rate_df["Reaction"].astype(str)
+    _order = {str(r): i for i, r in enumerate(selected_reactions)}
+    combined_rate_df = (
+        combined_rate_df.assign(
+            _ord=combined_rate_df["Reaction"].map(lambda r: _order.get(str(r), 10**9))
+        )
+        .sort_values(["_ord"], kind="stable")
+        .drop(columns="_ord")
+        .reset_index(drop=True)
+    )
+
+if combined_rate_df.empty:
+    st.info("No rates to display yet — select analytes above to compute rates.")
+else:
+    st.caption("Combined initial rates across all selected reactions and analytes.")
+    st.markdown(
+        _render_combined_rate_table_html(combined_rate_df),
+        unsafe_allow_html=True,
+    )
 
 # ---- Initial Rate Heat Map ----
 heatmap_png_bytes: bytes | None = None
 if not combined_rate_df.empty:
+    # Build a single wide/short heatmap PNG used for both the browser preview
+    # and the PDF report so the report matches what the user sees on screen.
+    try:
+        _n_rxn = combined_rate_df["Reaction"].nunique()
+        _n_an = combined_rate_df["Analyte"].nunique()
+        _hm_w = max(12.0, 1.2 * _n_an + 4.5)
+        _hm_h = max(3.5, 0.22 * _n_rxn + 2.0)
+        heatmap_png_bytes = build_rate_heatmap_png(
+            combined_rate_df, figsize=(_hm_w, _hm_h)
+        )
+    except Exception as _e:
+        st.warning(f"Heat map image export unavailable: {_e}")
+
     show_heatmap = st.toggle(
         "Show rate heat map (Reaction x Analyte)",
         value=False,
         key="rate_heatmap_toggle",
         help="Visualize initial rates across all selected reactions and analytes.",
     )
-    if show_heatmap:
-        web_heatmap_png = None
-        try:
-            # Wide/short figure for the web; PDF call below uses the default tall aspect.
-            _n_rxn = combined_rate_df["Reaction"].nunique()
-            _n_an = combined_rate_df["Analyte"].nunique()
-            _web_w = max(12.0, 1.2 * _n_an + 4.5)
-            _web_h = max(3.5, 0.22 * _n_rxn + 2.0)
-            web_heatmap_png = build_rate_heatmap_png(
-                combined_rate_df, figsize=(_web_w, _web_h)
-            )
-            heatmap_png_bytes = build_rate_heatmap_png(combined_rate_df)
-        except Exception as _e:
-            st.warning(f"Heat map image export unavailable: {_e}")
-        if web_heatmap_png:
-            st.image(web_heatmap_png, use_container_width=True)
+    if show_heatmap and heatmap_png_bytes:
+        st.image(heatmap_png_bytes, use_container_width=True)
 
 # ---- Fit Plots ----
 st.divider()
@@ -695,8 +805,55 @@ if generate_plots == "Yes":
         value=False,
         key="manual_profile_select",
     )
+    manual_per_reaction = st.checkbox(
+        "Manually specify analytes per reaction",
+        value=False,
+        key="manual_per_reaction_select",
+        help="When off, the analytes selected below are fit for every reaction.",
+    )
+    _cc = st.session_state["kinetics_clear_counter"]
+
+    global_fit_analytes: list = []
+    if not manual_per_reaction:
+        _available: list = []
+        _seen_avail: set = set()
+        for rxn in selected_reactions:
+            df_pivot = df_rate_by_rxn.get(rxn)
+            if df_pivot is None:
+                continue
+            for a in selected_analytes:
+                if a in df_pivot.columns and a not in _seen_avail:
+                    _seen_avail.add(a)
+                    _available.append(a)
+        global_key = f"fit_analytes_global_{_cc}"
+        if global_key in st.session_state:
+            existing = st.session_state[global_key]
+            if isinstance(existing, list):
+                pruned = [a for a in existing if a in _available]
+                if pruned != existing:
+                    st.session_state[global_key] = pruned
+        global_fit_analytes = st.multiselect(
+            "Analytes to fit (applied to all reactions)",
+            _available,
+            key=global_key,
+        )
+
+        if global_fit_analytes:
+            _rxn_ids = [
+                str(r) for r in selected_reactions
+                if df_rate_by_rxn.get(r) is not None
+                and any(a in df_rate_by_rxn[r].columns for a in global_fit_analytes)
+            ]
+            if _rxn_ids:
+                st.caption(
+                    f"Plotting {', '.join(global_fit_analytes)} "
+                    f"for Reactions {', '.join(_rxn_ids)}."
+                )
+
     chosen_rxn_analytes: set = set()
 
+    first_rxn_chosen: list | None = None
+    _seen_first_rxn = False
     for rxn in selected_reactions:
         df_pivot = df_rate_by_rxn.get(rxn)
         if df_pivot is None:
@@ -704,13 +861,40 @@ if generate_plots == "Yes":
         rxn_analytes = [a for a in selected_analytes if a in df_pivot.columns]
         if not rxn_analytes:
             continue
-        st.write(f"**Reaction {rxn}**")
-        _cc = st.session_state["kinetics_clear_counter"]
-        chosen_analytes = st.multiselect(
-            f"Analytes to fit — Reaction {rxn}",
-            rxn_analytes,
-            key=f"fit_analytes_{rxn}_{_cc}",
-        )
+
+        if manual_per_reaction:
+            st.write(f"**Reaction {rxn}**")
+            widget_key = f"fit_analytes_{rxn}_{_cc}"
+
+            # Defensive: drop stale selections whose analyte is no longer available.
+            if widget_key in st.session_state:
+                existing = st.session_state[widget_key]
+                if isinstance(existing, list):
+                    pruned = [a for a in existing if a in rxn_analytes]
+                    if pruned != existing:
+                        st.session_state[widget_key] = pruned
+
+            # Auto-populate from the first reaction's selection on the initial render.
+            if (
+                _seen_first_rxn
+                and first_rxn_chosen
+                and widget_key not in st.session_state
+            ):
+                _prefill = [a for a in first_rxn_chosen if a in rxn_analytes]
+                if _prefill:
+                    st.session_state[widget_key] = _prefill
+
+            chosen_analytes = st.multiselect(
+                f"Analytes to fit — Reaction {rxn}",
+                rxn_analytes,
+                key=widget_key,
+            )
+            if not _seen_first_rxn:
+                first_rxn_chosen = list(chosen_analytes)
+                _seen_first_rxn = True
+        else:
+            chosen_analytes = [a for a in global_fit_analytes if a in rxn_analytes]
+
         chosen_rxn_analytes.update((rxn, a) for a in chosen_analytes)
         for analyte in chosen_analytes:
             single_df = (
@@ -826,31 +1010,6 @@ if st.session_state["kinetics_remove_idx"] is not None:
     st.rerun()
 
 if st.session_state["kinetics_plot_history"]:
-    st.divider()
-    st.subheader("Export Report")
-    try:
-        pdf_bytes = generate_report_pdf(
-            experiment_setup=st.session_state.get("experiment_setup", {}),
-            hplc_file_name=st.session_state.get("hplc_file_name", "-"),
-            plot_history=st.session_state.get("kinetics_plot_history", []),
-            reaction_plots=reaction_plot_data,
-            analyte_ratio_plots=analyte_ratio_plot_data,
-            rate_summaries=rate_summaries,
-            combined_rate_df=combined_rate_df,
-            heatmap_png=heatmap_png_bytes,
-            plate_map_png=st.session_state.get("plate_map_png"),
-        )
-        st.download_button(
-            "Download Report (.pdf)",
-            data=pdf_bytes,
-            file_name="kinetics_report.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-            type="primary",
-        )
-    except Exception as e:
-        st.warning(f"PDF export unavailable: {e}")
-
     with st.container():
         st.markdown("#### Clear plots to reset plotting settings and start fresh.")
         if st.button("Clear all plots", key="clear_plots", type="tertiary"):
@@ -883,9 +1042,67 @@ if st.session_state["kinetics_plot_history"]:
                         st.session_state["kinetics_remove_idx"] = idx
                         st.rerun()
                     rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
+
+    st.divider()
+    st.subheader("Export Report")
+    _dl_cols = st.columns(3 if not is_preprocessed else 2)
+    with _dl_cols[0]:
+        try:
+            pdf_bytes = generate_report_pdf(
+                experiment_setup=st.session_state.get("experiment_setup", {}),
+                hplc_file_name=st.session_state.get("hplc_file_name", "-"),
+                plot_history=st.session_state.get("kinetics_plot_history", []),
+                reaction_plots=reaction_plot_data,
+                analyte_ratio_plots=analyte_ratio_plot_data,
+                rate_summaries=rate_summaries,
+                combined_rate_df=combined_rate_df,
+                heatmap_png=heatmap_png_bytes,
+                plate_map_png=st.session_state.get("plate_map_png"),
+            )
+            st.download_button(
+                "Download Report (.pdf)",
+                data=pdf_bytes,
+                file_name="kinetics_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="primary",
+            )
+        except Exception as e:
+            st.warning(f"PDF export unavailable: {e}")
+    with _dl_cols[1]:
+        if not combined_rate_df.empty:
+            _rates_csv = combined_rate_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Download Rate Table (.csv)",
+                data=_rates_csv,
+                file_name="kinetics_rate_summary.csv",
+                mime="text/csv",
+                use_container_width=True,
+                type="primary",
+                key="kinetics_rate_csv_download",
+            )
+        else:
+            st.button(
+                "Download Rate Table (.csv)",
+                disabled=True,
+                use_container_width=True,
+                help="Select analytes above to generate a rate table.",
+            )
+    if not is_preprocessed:
+        with _dl_cols[2]:
+            _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
+            _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+            download_df = format_download_columns(df_after_add_loading)
+            _merged_csv = download_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Download Processed Data (.csv)",
+                data=_merged_csv,
+                file_name=f"{_stem}_processed.csv",
+                mime="text/csv",
+                use_container_width=True,
+                type="primary",
+                key="chemstation_download_processed_csv",
+                help="HPLC data file with reaction number, wells, and timepoints from the conditions file.",
+            )
         st.divider()
 
-if is_preprocessed:
-    export_button_layout(df_preproc_plot, is_preprocessed, reaction_plot_data, rate_summaries)
-else:
-    export_button_layout(df_after_add_loading, is_preprocessed, reaction_plot_data, rate_summaries)

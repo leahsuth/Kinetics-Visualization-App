@@ -492,8 +492,13 @@ def generate_report_pdf(
         try:
             pdf.image(io.BytesIO(plate_map_png), w=170, keep_aspect_ratio=True)
             pdf.ln(3)
-        except Exception:
-            pass
+        except Exception as _e:
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_text_color(*MUTED)
+            pdf.multi_cell(0, 5, f"Plate map could not be embedded: {_e}",
+                           new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*INK)
+            pdf.ln(3)
 
     # ── 2. Reaction Plots (raw data) ──────────────────────────────────────
     if reaction_plots:
@@ -614,7 +619,7 @@ def generate_report_pdf(
             group_col_index=0,
         )
 
-    # ── 4. Initial Rate Heat Map ─────────────────────────────────────────
+    # ── 5. Initial Rate Heat Map ─────────────────────────────────────────
     if heatmap_png:
         pdf.add_page()
         _section_title(pdf, "5.  Initial Rate Heat Map")
@@ -628,9 +633,16 @@ def generate_report_pdf(
         pdf.set_text_color(*INK)
         pdf.ln(2)
         try:
-            pdf.image(io.BytesIO(heatmap_png), w=180, h=230, keep_aspect_ratio=True)
-        except Exception:
-            pass
+            # Full page width; height auto-derives from the PNG aspect (the
+            # heatmap is generated with a wide/short aspect that matches what
+            # the user sees in the browser).
+            pdf.image(io.BytesIO(heatmap_png), w=180)
+        except Exception as _e:
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_text_color(*MUTED)
+            pdf.multi_cell(0, 5, f"Heat map could not be embedded: {_e}",
+                           new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*INK)
 
     # ── 5. Initial Rate Calculations (per-reaction fits) ─────────────────
     if plot_history:

@@ -16,7 +16,7 @@ from src.figures.graph_xl import graph_from_xlsx, update_measurement_label
 from src.page_styling.kinetics_page.exporting import export_button_layout
 from src.page_styling.kinetics_page.kinetics_styling import rate_table_widget
 from src.page_styling.rate_information import build_rate_summary, profile_picker
-from src.page_styling.report_generator import generate_report_pdf
+from src.page_styling.report_generator import generate_report_pdf, build_rate_heatmap_png
 from src.parsing.parsing_data import format_download_columns, process_streamlit
 from src.parsing.plotting_process import plot_process
 from src.parsing.process_preprocessed_data import process_preprocessed_data
@@ -655,6 +655,32 @@ for rxn in selected_reactions:
 
 combined_rate_df = pd.DataFrame(combined_rows, columns=["Reaction", "Analyte", "Rate"])
 
+# ---- Initial Rate Heat Map ----
+heatmap_png_bytes: bytes | None = None
+if not combined_rate_df.empty:
+    show_heatmap = st.toggle(
+        "Show rate heat map (Reaction x Analyte)",
+        value=False,
+        key="rate_heatmap_toggle",
+        help="Visualize initial rates across all selected reactions and analytes.",
+    )
+    if show_heatmap:
+        web_heatmap_png = None
+        try:
+            # Wide/short figure for the web; PDF call below uses the default tall aspect.
+            _n_rxn = combined_rate_df["Reaction"].nunique()
+            _n_an = combined_rate_df["Analyte"].nunique()
+            _web_w = max(12.0, 1.2 * _n_an + 4.5)
+            _web_h = max(3.5, 0.22 * _n_rxn + 2.0)
+            web_heatmap_png = build_rate_heatmap_png(
+                combined_rate_df, figsize=(_web_w, _web_h)
+            )
+            heatmap_png_bytes = build_rate_heatmap_png(combined_rate_df)
+        except Exception as _e:
+            st.warning(f"Heat map image export unavailable: {_e}")
+        if web_heatmap_png:
+            st.image(web_heatmap_png, use_container_width=True)
+
 # ---- Fit Plots ----
 st.divider()
 st.write("## Rate Plots")
@@ -811,6 +837,8 @@ if st.session_state["kinetics_plot_history"]:
             analyte_ratio_plots=analyte_ratio_plot_data,
             rate_summaries=rate_summaries,
             combined_rate_df=combined_rate_df,
+            heatmap_png=heatmap_png_bytes,
+            plate_map_png=st.session_state.get("plate_map_png"),
         )
         st.download_button(
             "Download Report (.pdf)",

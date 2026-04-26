@@ -24,6 +24,26 @@ from src.regression.rate_calculation import exp_func, kinetics_fit_initial_rate
 from src.regression.sync_kinetics_plot_history import sync_kinetics_plot_history
 
 
+def _get_reaction_notes(rxn) -> str:
+    """Collect non-empty well notes for a given reaction from experiment_setup.well_info."""
+    setup = st.session_state.get("experiment_setup", {}) or {}
+    well_info = setup.get("well_info", {}) or {}
+    parts: list[str] = []
+    seen: set = set()
+    for well_id, info in well_info.items():
+        if str(info.get("Reaction", "")).strip() != str(rxn):
+            continue
+        note = str(info.get("Notes", "") or "").strip()
+        if not note or note.lower() == "none":
+            continue
+        entry = f"{well_id}: {note}"
+        if entry in seen:
+            continue
+        seen.add(entry)
+        parts.append(entry)
+    return " • ".join(parts)
+
+
 def _format_rate_cell(val) -> str:
     """Format a rate value for display; show an em-dash when missing."""
     try:
@@ -281,6 +301,9 @@ if is_preprocessed:
                             title_suffix=f"Reaction {rxn}",
                             colorblind_shapes=colorblind_shapes,
                         )
+                        _rxn_notes = _get_reaction_notes(rxn)
+                        if _rxn_notes:
+                            st.caption(f"**Notes:** {_rxn_notes}")
 
     remaining_reactions = [r for r in selected_reactions if r not in reactions_for_plots]
     if remaining_reactions:
@@ -420,6 +443,7 @@ if is_preprocessed:
             "title_text": f"{measurement_type} vs. Time for Reaction {rxn}",
             "x_label": f"Time ({time_unit})",
             "y_label": measurement_type,
+            "notes": _get_reaction_notes(rxn),
         })
 
 else:
@@ -527,6 +551,9 @@ else:
                             colorblind_shapes=colorblind_shapes,
                         )
                         st.plotly_chart(fig, width="stretch")
+                        _rxn_notes = _get_reaction_notes(rxn)
+                        if _rxn_notes:
+                            st.caption(f"**Notes:** {_rxn_notes}")
 
     remaining_reactions = [r for r in selected_reactions if r not in reactions_for_plots]
     if remaining_reactions:
@@ -656,6 +683,7 @@ else:
                 "title_text": f"{pretty_meas} vs. Time for Reaction {rxn}",
                 "x_label": f"Time ({time_unit})",
                 "y_label": pretty_meas,
+                "notes": _get_reaction_notes(rxn),
             })
 
 rate_summaries = []

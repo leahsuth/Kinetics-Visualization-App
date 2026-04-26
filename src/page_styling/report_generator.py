@@ -506,6 +506,33 @@ def generate_report_pdf(
             pdf.set_text_color(*INK)
             pdf.ln(3)
 
+        # Per-reaction notes from the plate editor, listed beneath the plate.
+        well_info = experiment_setup.get("well_info") or {}
+        plate_notes: list[tuple[str, str, str]] = []  # (reaction, well, note)
+        _seen_notes: set = set()
+        for well_id, info in well_info.items():
+            note = str(info.get("Notes", "") or "").strip()
+            if not note or note.lower() == "none":
+                continue
+            rxn = str(info.get("Reaction", "")).strip() or "-"
+            entry = (rxn, str(well_id), note)
+            if entry in _seen_notes:
+                continue
+            _seen_notes.add(entry)
+            plate_notes.append(entry)
+        if plate_notes:
+            plate_notes.sort(key=lambda e: (e[0], e[1]))
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(*DARK_TEAL)
+            pdf.cell(0, 6, "Plate notes", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*INK)
+            pdf.set_font("Helvetica", "", 9)
+            for rxn, well, note in plate_notes:
+                pdf.multi_cell(0, 5,
+                               f"  - Reaction {rxn} ({well}): {note}",
+                               new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
     # ── 2. Reaction Plots (raw data) ──────────────────────────────────────
     if reaction_plots:
         _section_title(pdf, "2.  Reaction Plots")

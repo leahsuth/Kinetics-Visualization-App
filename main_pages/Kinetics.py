@@ -51,29 +51,30 @@ def _render_combined_rate_table_html(df: pd.DataFrame) -> str:
 
     css = (
         "<style>"
-        ".rate-table-wrap{display:block;border:1px solid " + BORDER + ";"
+        ".rate-summary-table-wrap{display:block;border:1px solid " + BORDER + ";"
         "border-radius:10px;overflow-y:auto;overflow-x:hidden;"
         "max-height:380px;width:100%;max-width:100%;box-sizing:border-box;"
         "box-shadow:0 1px 3px rgba(0,0,0,0.04);"
         "margin:6px 0 14px 0;background:white;}"
-        ".rate-table{border-collapse:separate;border-spacing:0;width:100%;"
-        "max-width:100%;table-layout:fixed;font-size:0.9rem;"
+        ".rate-summary-table{display:table;border-collapse:separate;"
+        "border-spacing:0;width:100%;max-width:100%;table-layout:fixed;"
+        "font-size:0.9rem;"
         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,"
         "'Helvetica Neue',Arial,sans-serif;color:#1f2626;}"
-        ".rate-table thead th{background:linear-gradient(135deg," + TEAL + " 0%,"
+        ".rate-summary-table thead th{background:linear-gradient(135deg," + TEAL + " 0%,"
         + DARK_TEAL + " 100%);color:white;padding:10px 12px;text-align:center;"
         "font-weight:600;letter-spacing:0.04em;text-transform:uppercase;"
         "font-size:0.85rem;position:sticky;top:0;z-index:1;}"
-        ".rate-table tbody td{padding:8px 12px;border-top:1px solid " + BORDER + ";"
+        ".rate-summary-table tbody td{padding:8px 12px;border-top:1px solid " + BORDER + ";"
         "vertical-align:middle;text-align:center;font-size:0.9rem;"
         "word-break:break-word;}"
-        ".rate-table tbody tr.alt td{background:" + ALT_ROW + ";}"
-        ".rate-table td.rxn-cell{font-weight:700;color:" + DARK_TEAL + ";"
+        ".rate-summary-table tbody tr.alt td{background:" + ALT_ROW + ";}"
+        ".rate-summary-table td.rxn-cell{font-weight:700;color:" + DARK_TEAL + ";"
         "background:" + TEAL_TINT + " !important;border-right:3px solid " + TEAL + ";"
         "white-space:nowrap;font-size:1.15rem;letter-spacing:0.02em;}"
-        ".rate-table td.num-cell{font-variant-numeric:tabular-nums;}"
-        ".rate-table tbody tr.group-start td{border-top:2px solid " + TEAL + "22;}"
-        ".rate-table tbody tr:first-child td{border-top:none;}"
+        ".rate-summary-table td.num-cell{font-variant-numeric:tabular-nums;}"
+        ".rate-summary-table tbody tr.group-start td{border-top:2px solid " + TEAL + "22;}"
+        ".rate-summary-table tbody tr:first-child td{border-top:none;}"
         "</style>"
     )
 
@@ -86,7 +87,7 @@ def _render_combined_rate_table_html(df: pd.DataFrame) -> str:
         else:
             groups.append((rxn, [row]))
 
-    parts = [css, '<div class="rate-table-wrap"><table class="rate-table">']
+    parts = [css, '<div class="rate-summary-table-wrap"><table class="rate-summary-table">']
     parts.append(
         "<thead><tr><th>Reaction</th><th>Analyte</th>"
         "<th>Rate</th></tr></thead><tbody>"
@@ -1043,66 +1044,66 @@ if st.session_state["kinetics_plot_history"]:
                         st.rerun()
                     rate_table_widget(caption, rt_rate, rt_C0, rt_Ce, rt_k, mode)
 
-    st.divider()
-    st.subheader("Export Report")
-    _dl_cols = st.columns(3 if not is_preprocessed else 2)
-    with _dl_cols[0]:
-        try:
-            pdf_bytes = generate_report_pdf(
-                experiment_setup=st.session_state.get("experiment_setup", {}),
-                hplc_file_name=st.session_state.get("hplc_file_name", "-"),
-                plot_history=st.session_state.get("kinetics_plot_history", []),
-                reaction_plots=reaction_plot_data,
-                analyte_ratio_plots=analyte_ratio_plot_data,
-                rate_summaries=rate_summaries,
-                combined_rate_df=combined_rate_df,
-                heatmap_png=heatmap_png_bytes,
-                plate_map_png=st.session_state.get("plate_map_png"),
-            )
-            st.download_button(
-                "Download Report (.pdf)",
-                data=pdf_bytes,
-                file_name="kinetics_report.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                type="primary",
-            )
-        except Exception as e:
-            st.warning(f"PDF export unavailable: {e}")
-    with _dl_cols[1]:
-        if not combined_rate_df.empty:
-            _rates_csv = combined_rate_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download Rate Table (.csv)",
-                data=_rates_csv,
-                file_name="kinetics_rate_summary.csv",
-                mime="text/csv",
-                use_container_width=True,
-                type="primary",
-                key="kinetics_rate_csv_download",
-            )
-        else:
-            st.button(
-                "Download Rate Table (.csv)",
-                disabled=True,
-                use_container_width=True,
-                help="Select analytes above to generate a rate table.",
-            )
-    if not is_preprocessed:
-        with _dl_cols[2]:
-            _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-            _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
-            download_df = format_download_columns(df_after_add_loading)
-            _merged_csv = download_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download Processed Data (.csv)",
-                data=_merged_csv,
-                file_name=f"{_stem}_processed.csv",
-                mime="text/csv",
-                use_container_width=True,
-                type="primary",
-                key="chemstation_download_processed_csv",
-                help="HPLC data file with reaction number, wells, and timepoints from the conditions file.",
-            )
-        st.divider()
+# ---- Export Report (always visible at the bottom of the page) ----
+st.divider()
+st.subheader("Export Report")
+_dl_cols = st.columns(3 if not is_preprocessed else 2)
+with _dl_cols[0]:
+    try:
+        pdf_bytes = generate_report_pdf(
+            experiment_setup=st.session_state.get("experiment_setup", {}),
+            hplc_file_name=st.session_state.get("hplc_file_name", "-"),
+            plot_history=st.session_state.get("kinetics_plot_history", []),
+            reaction_plots=reaction_plot_data,
+            analyte_ratio_plots=analyte_ratio_plot_data,
+            rate_summaries=rate_summaries,
+            combined_rate_df=combined_rate_df,
+            heatmap_png=heatmap_png_bytes,
+            plate_map_png=st.session_state.get("plate_map_png"),
+        )
+        st.download_button(
+            "Download Report (.pdf)",
+            data=pdf_bytes,
+            file_name="kinetics_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
+    except Exception as e:
+        st.warning(f"PDF export unavailable: {e}")
+with _dl_cols[1]:
+    if not combined_rate_df.empty:
+        _rates_csv = combined_rate_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Rate Table (.csv)",
+            data=_rates_csv,
+            file_name="kinetics_rate_summary.csv",
+            mime="text/csv",
+            use_container_width=True,
+            type="primary",
+            key="kinetics_rate_csv_download",
+        )
+    else:
+        st.button(
+            "Download Rate Table (.csv)",
+            disabled=True,
+            use_container_width=True,
+            help="Select analytes above to generate a rate table.",
+        )
+if not is_preprocessed:
+    with _dl_cols[2]:
+        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
+        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+        download_df = format_download_columns(df_after_add_loading)
+        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Processed Data (.csv)",
+            data=_merged_csv,
+            file_name=f"{_stem}_processed.csv",
+            mime="text/csv",
+            use_container_width=True,
+            type="primary",
+            key="chemstation_download_processed_csv",
+            help="HPLC data file with reaction number, wells, and timepoints from the conditions file.",
+        )
 

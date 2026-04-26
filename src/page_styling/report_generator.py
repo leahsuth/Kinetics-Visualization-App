@@ -33,6 +33,12 @@ def _style_axes(ax) -> None:
     ax.set_axisbelow(True)
 
 
+PLOTLY_QUALITATIVE = [
+    "#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A",
+    "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
+]
+
+
 def _df_to_png(
     df,
     select_meas: str,
@@ -46,12 +52,12 @@ def _df_to_png(
     color_col = color_by if color_by in df.columns else (
         "reactant" if "reactant" in df.columns else df.columns[0]
     )
-    palette = plt.get_cmap("viridis")
-    groups = list(df.groupby(color_col))
-    n = max(len(groups), 1)
+    # Iterate groups in first-seen order so the color assignment matches the
+    # browser's Plotly figure (color_discrete_sequence + categorical color).
+    groups = list(df.groupby(color_col, sort=False))
     for i, (label, group) in enumerate(groups):
         group = group.sort_values("time")
-        color = palette(0.15 + 0.7 * (i / max(n - 1, 1)))
+        color = PLOTLY_QUALITATIVE[i % len(PLOTLY_QUALITATIVE)]
         ax.scatter(
             group["time"], group[select_meas], label=str(label),
             color=color, s=28, edgecolor="white", linewidth=0.6, zorder=3,
@@ -574,7 +580,7 @@ def generate_report_pdf(
                 pass
 
     # ── 4. Rate Summary ───────────────────────────────────────────────────
-    if (combined_rate_df is not None and not combined_rate_df.empty) or rate_summaries:
+    if combined_rate_df is not None and not combined_rate_df.empty:
         _section_title(pdf, "4.  Rate Summary")
         pdf.set_font("Helvetica", "I", 9)
         pdf.set_text_color(*MUTED)
@@ -583,28 +589,6 @@ def generate_report_pdf(
                        new_x="LMARGIN", new_y="NEXT")
         pdf.set_text_color(*INK)
         pdf.ln(1)
-
-    # Per-reaction rate-summary tables (one per reaction, from main).
-    if rate_summaries:
-        _subsection_title(pdf, "Per-reaction rate tables")
-        for entry in rate_summaries:
-            if pdf.get_y() > pdf.h - pdf.b_margin - 30:
-                pdf.add_page()
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(*DARK_TEAL)
-            pdf.cell(0, 6, f"Reaction {entry['reaction']}",
-                     new_x="LMARGIN", new_y="NEXT")
-            pdf.set_text_color(*INK)
-            rt_entry = entry["summary_df"]
-            avail = pdf.w - pdf.l_margin - pdf.r_margin
-            col_widths = [avail / max(len(rt_entry.columns), 1)] * len(rt_entry.columns)
-            rows_out = [[_format_value(v) for v in row] for _, row in rt_entry.iterrows()]
-            _draw_table(pdf, list(rt_entry.columns), rows_out, col_widths=col_widths)
-
-    # Combined rate-summary table (single table across all reactions, from this branch).
-    if combined_rate_df is not None and not combined_rate_df.empty:
-        if rate_summaries:
-            _subsection_title(pdf, "Combined rate table")
 
         cols_in = ["Reaction"] + [c for c in combined_rate_df.columns if c != "Reaction"]
         rt = combined_rate_df.reindex(columns=cols_in)

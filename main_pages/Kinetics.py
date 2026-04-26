@@ -1075,7 +1075,7 @@ if st.session_state["kinetics_plot_history"]:
 # ---- Export Report (always visible at the bottom of the page) ----
 st.divider()
 st.subheader("Export Report")
-_dl_cols = st.columns(3 if not is_preprocessed else 2)
+_dl_cols = st.columns(3)
 with _dl_cols[0]:
     try:
         pdf_bytes = generate_report_pdf(
@@ -1094,6 +1094,7 @@ with _dl_cols[0]:
             data=pdf_bytes,
             file_name="kinetics_report.pdf",
             mime="application/pdf",
+            on_click="ignore",
             use_container_width=True,
             type="primary",
         )
@@ -1107,6 +1108,7 @@ with _dl_cols[1]:
             data=_rates_csv,
             file_name="kinetics_rate_summary.csv",
             mime="text/csv",
+            on_click="ignore",
             use_container_width=True,
             type="primary",
             key="kinetics_rate_csv_download",
@@ -1118,20 +1120,28 @@ with _dl_cols[1]:
             use_container_width=True,
             help="Select analytes above to generate a rate table.",
         )
-if not is_preprocessed:
-    with _dl_cols[2]:
-        _hplc_name = st.session_state.get("hplc_file_name") or "hplc_data"
-        _stem = _hplc_name.rsplit(".", 1)[0] if "." in _hplc_name else _hplc_name
+
+with _dl_cols[2]:
+    source_name = (
+        st.session_state.get("processed_data_file_name")
+        if is_preprocessed
+        else st.session_state.get("hplc_file_name")
+    ) or "processed_data"
+    _stem = source_name.rsplit(".", 1)[0] if "." in source_name else source_name
+    if is_preprocessed:
+        download_df = format_download_columns(final_df)
+    else:
         download_df = format_download_columns(df_after_add_loading)
-        _merged_csv = download_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download Processed Data (.csv)",
-            data=_merged_csv,
-            file_name=f"{_stem}_processed.csv",
-            mime="text/csv",
-            use_container_width=True,
-            type="primary",
-            key="chemstation_download_processed_csv",
-            help="HPLC data file with reaction number, wells, and timepoints from the conditions file.",
-        )
+    _processed_csv = download_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download processed data (.csv)",
+        data=_processed_csv,
+        file_name=f"{_stem}_processed.csv",
+        mime="text/csv",
+        on_click="ignore",
+        use_container_width=True,
+        type="primary",
+        key="chemstation_download_processed_csv",
+        help="HPLC data file with reaction number, wells, and timepoints from the conditions file."
+    )
 

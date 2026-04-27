@@ -15,16 +15,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-with open("index.css", "r") as file:
-    css = file.read()
-
-st.html(f"<style>{css}</style>")
-
-
 st.logo(image='assets/Merck_Logo.png')
 
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize reaction plots, and calculate initial rates.")
-
 
 # Let's Get Started banner + help in corner
 SLIDES_DIR = Path(__file__).parent.parent / "assets"

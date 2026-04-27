@@ -30,12 +30,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-with open("index.css", "r") as file:
-    css = file.read()
 
-st.html(f"<style>{css}</style>")
 st.write("# Kinetics Plotter")
-
 
 experiment_setup_meta = st.session_state.get("experiment_setup", {}) or {}
 source_type = experiment_setup_meta.get("source", "excel")

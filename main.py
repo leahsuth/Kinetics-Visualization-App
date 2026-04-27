@@ -1,5 +1,10 @@
 import streamlit as st
 
+with open("index.css", "r") as file:
+    css = file.read()
+
+st.html(f"<style>{css}</style>")
+
 if "experiment_setup" not in st.session_state:
     st.session_state.experiment_setup = None
 

@@ -47,11 +47,6 @@ if str(ROOT) not in sys.path:
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
-with open("index.css", "r") as file:
-    css = file.read()
-
-st.html(f"<style>{css}</style>")
-
 input_page_markdown.setup_header()
 
 st.session_state.setdefault("experiment_setup", {})

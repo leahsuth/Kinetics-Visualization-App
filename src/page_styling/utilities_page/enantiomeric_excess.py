@@ -19,7 +19,6 @@ def ee_widget():
         results = st.container(horizontal=True)
         if (S + R) != 100:
             st.error("S and R must sum to 100")
-            st.stop()
-
-        result = excess(R,S) 
-        results.write(f"## Result: {result}%")
+        else:
+            result = excess(R,S) 
+            results.write(f"## Result: {result}%")

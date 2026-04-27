@@ -2,11 +2,12 @@ import streamlit as st
 from pathlib import Path
 import io
 import pandas as pd
-from src.page_styling.welcome_page import (
+from src.page_styling.welcome_page.banners import (
     larger_banner, 
     about_banner, 
     about_main_body, 
-    help_dialog)
+    )
+from src.page_styling.welcome_page.instructions import help_dialog
 
 st.set_page_config(
     page_title="Kinetics Visualization",
@@ -45,5 +46,5 @@ with col_cta:
 with col_help:
     help_button = st.button("Click for Instructions!", width="stretch")
     if help_button:
-        help_dialog(instruction_paths)
+        help_dialog()
 

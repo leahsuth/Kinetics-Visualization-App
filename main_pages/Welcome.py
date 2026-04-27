@@ -26,12 +26,6 @@ st.logo(image='assets/Merck_Logo.png')
 
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize reaction plots, and calculate initial rates.")
 
-
-# Let's Get Started banner + help in corner
-SLIDES_DIR = Path(__file__).parent.parent / "assets"
-instruction_images = ["Initial_input.png", "Kinetics_main_plot.png", "Kinetics_initial_rate.png", "Utilities.png"]
-instruction_paths = [SLIDES_DIR / f for f in instruction_images if (SLIDES_DIR / f).exists()]
-
 about_main_body()
 
 col_cta, col_help = st.columns(2)

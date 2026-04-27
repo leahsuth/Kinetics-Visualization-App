@@ -56,7 +56,6 @@ button[kind="secondary"]:hover {
 }
 
 button[kind="tertiary"] {
-  background-color: white;
   border: solid black 1px;
   color: red;
   font-size: 1.15rem;
@@ -141,14 +140,12 @@ button[kind="tertiary"]:hover {
 /* kinetics page */
 /* ***************** */
 .rate-table {
-  background-color: white;
   display: grid;
   grid-template-columns: auto auto;
   gap: 2px;
   width: 300px;
   padding: 10px; 
   font-size: 16px;
-  background-color: #f1f1f1;
   border: 1px solid black;
   border-radius: 8px;
   line-height: 1.8;

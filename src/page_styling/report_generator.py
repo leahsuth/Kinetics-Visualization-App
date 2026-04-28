@@ -139,10 +139,9 @@ def _heatmap_to_png(pivot: pd.DataFrame,
     if figsize is not None:
         fig_w, fig_h = figsize
     else:
-        # Aspect tuned to the PDF embed box (180×230 mm ≈ 0.78). Keep cells from
-        # collapsing when there are many reactions.
-        fig_w = max(8.0, 1.05 * n_cols + 3.0)
-        fig_h = max(5.0, 0.65 * n_rows + 2.4)
+        # Scale up for denser matrices so per-cell annotations remain readable.
+        fig_w = max(10.0, 1.35 * n_cols + 4.5)
+        fig_h = max(6.0, 0.95 * n_rows + 3.0)
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
     finite = data[np.isfinite(data)]
@@ -171,19 +170,26 @@ def _heatmap_to_png(pivot: pd.DataFrame,
     ax.set_yticklabels([str(r) for r in pivot.index], fontsize=11)
     ax.tick_params(axis="both", colors="#1f2626", length=3, color=BORDER_HEX)
 
-    # Subtle, small annotations - only when there's room.
-    if n_rows <= 28 and n_cols <= 14:
-        cell_fs = 7 if (n_rows <= 18 and n_cols <= 10) else 6
-        for i in range(n_rows):
-            for j in range(n_cols):
-                val = data[i, j]
-                if not np.isfinite(val):
-                    continue
-                rgba = im.cmap(im.norm(val))
-                luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
-                txt_color = "white" if luminance < 0.45 else "#1f2626"
-                ax.text(j, i, f"{val:.2f}", ha="center", va="center",
-                        color=txt_color, fontsize=cell_fs, alpha=0.85)
+    # Always annotate finite values with a fixed, readable size.
+    cell_fs = 8.0
+    for i in range(n_rows):
+        for j in range(n_cols):
+            val = data[i, j]
+            if not np.isfinite(val):
+                continue
+            rgba = im.cmap(im.norm(val))
+            luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+            txt_color = "white" if luminance < 0.45 else "#1f2626"
+            ax.text(
+                j,
+                i,
+                f"{val:.2f}",
+                ha="center",
+                va="center",
+                color=txt_color,
+                fontsize=cell_fs,
+                alpha=0.9,
+            )
 
     ax.set_xlabel("Analyte / Condition", fontsize=13, color=DARK_TEAL_HEX,
                   labelpad=10, fontweight="bold")

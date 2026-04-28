@@ -45,50 +45,138 @@ def _df_to_png(
     select_meas: str,
     color_by: str,
     chart_type: str = "Scatter",
+    colorblind_shapes: bool = False,
     title_text: str | None = None,
     x_label: str = "Time",
     y_label: str | None = None,
 ) -> bytes:
     """Render the kinetics dataframe as a matplotlib PNG."""
     fig, ax = plt.subplots(figsize=(11, 4.5))
-    color_col = color_by if color_by in df.columns else (
-        "reactant" if "reactant" in df.columns else df.columns[0]
-    )
-    # Iterate groups in first-seen order so the color assignment matches the
-    # browser's Plotly figure (color_discrete_sequence + categorical color).
-    groups = list(df.groupby(color_col, sort=False))
-    is_line = str(chart_type or "").strip().lower() == "line"
-    for i, (label, group) in enumerate(groups):
-        group = group.copy()
-        group["time"] = pd.to_numeric(group["time"], errors="coerce")
-        group[select_meas] = pd.to_numeric(group[select_meas], errors="coerce")
-        group = group.dropna(subset=["time", select_meas]).sort_values("time")
-        if group.empty:
-            continue
-        color = PLOTLY_QUALITATIVE[i % len(PLOTLY_QUALITATIVE)]
-        if is_line:
+    try:
+        color_col = color_by if color_by in df.columns else (
+            "reactant" if "reactant" in df.columns else df.columns[0]
+        )
+
+        reaction_col = "reaction" if "reaction" in df.columns else (
+            "Reaction" if "Reaction" in df.columns else None
+        )
+        reactant_col = "reactant" if "reactant" in df.columns else (
+            "Analyte" if "Analyte" in df.columns else None
+        )
+
+        color_labels = sorted(df[color_col].astype(str).unique().tolist())
+        palette = plt.get_cmap("tab10")
+        color_map = {
+            label: palette(i % 10) for i, label in enumerate(color_labels)
+        }
+        symbol_sequence = [
+            "circle",
+            "square",
+            "diamond",
+            "cross",
+            "x",
+            "triangle-up",
+            "triangle-down",
+            "triangle-left",
+            "triangle-right",
+            "pentagon",
+            "hexagon",
+            "star",
+            "hourglass",
+            "bowtie",
+        ]
+        mpl_symbol_map = {
+            "circle": "o",
+            "square": "s",
+            "diamond": "D",
+            "cross": "P",
+            "x": "X",
+            "triangle-up": "^",
+            "triangle-down": "v",
+            "triangle-left": "<",
+            "triangle-right": ">",
+            "pentagon": "p",
+            "hexagon": "h",
+            "star": "*",
+            "hourglass": "d",
+            "bowtie": "+",
+        }
+        shape_col = reactant_col if reactant_col in df.columns else color_col
+        shape_labels = sorted(df[shape_col].astype(str).unique().tolist())
+        shape_symbol_map = {
+            label: symbol_sequence[i % len(symbol_sequence)]
+            for i, label in enumerate(shape_labels)
+        }
+
+        group_cols = [color_col]
+        if reaction_col:
+            group_cols.append(reaction_col)
+        if reactant_col:
+            group_cols.append(reactant_col)
+
+        legend_entries = {}
+
+        for keys, group in df.groupby(group_cols, dropna=False):
+            group = group.sort_values("time")
+            if isinstance(keys, tuple):
+                color_label = str(keys[0])
+            else:
+                color_label = str(keys)
+            color = color_map.get(color_label)
+            marker = "o"
+            legend_label = color_label
+            if colorblind_shapes:
+                shape_label = str(group[shape_col].astype(str).iloc[0])
+                symbol_name = shape_symbol_map.get(shape_label, "circle")
+                marker = mpl_symbol_map.get(symbol_name, "o")
+                legend_label = f"{color_label} | {shape_label}"
+
+            if str(chart_type).lower() == "line":
+                ax.plot(group["time"], group[select_meas], marker=marker, color=color)
+            else:
+                ax.scatter(group["time"], group[select_meas], color=color, marker=marker)
+            legend_entries.setdefault(legend_label, {"color": color, "marker": marker})
+
+        for label, style in legend_entries.items():
             ax.plot(
-                group["time"], group[select_meas], label=str(label),
-                color=color, marker="o", markersize=4, linewidth=1.8, zorder=3,
+                [],
+                [],
+                marker=style["marker"],
+                linestyle="",
+                color=style["color"],
+                label=label,
             )
-        else:
-            ax.scatter(
-                group["time"], group[select_meas], label=str(label),
-                color=color, s=28, edgecolor="white", linewidth=0.6, zorder=3,
-            )
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label or select_meas)
-    ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=13, color=DARK_TEAL_HEX, pad=10)
-    leg = ax.legend(title=color_col, bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8, frameon=False)
-    if leg and leg.get_title():
-        leg.get_title().set_color(DARK_TEAL_HEX)
-    _style_axes(ax)
-    fig.tight_layout()
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, facecolor="white")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
+
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label or select_meas)
+        ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=14)
+        leg = ax.legend(
+            title=f"{color_col} | {shape_col}" if colorblind_shapes else color_col,
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
+            fontsize=12,
+            title_fontsize=12,
+            frameon=True,
+            fancybox=True,
+            framealpha=0.95,
+            facecolor="white",
+            edgecolor="#666666",
+            markerscale=1.2,
+            handletextpad=0.6,
+            borderpad=0.6,
+            labelspacing=0.4,
+        )
+        if leg is not None:
+            for t in leg.get_texts():
+                t.set_color("#111111")
+            leg.get_title().set_color("#111111")
+        fig.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, facecolor="white")
+        buf.seek(0)
+        return buf.getvalue()
+    finally:
+        plt.close(fig)
 
 
 def analyte_ratio_to_png(
@@ -269,8 +357,10 @@ def _history_item_to_png(item: dict) -> bytes:
         f"Reaction {item['reaction']} - {analyte} ({item['profile_type']})",
         fontsize=11, color=DARK_TEAL_HEX, pad=8,
     )
-    ax.legend(fontsize=8, frameon=False, loc="best")
+
+    ax.legend(fontsize=9, frameon=False, loc="best")
     _style_axes(ax)
+
     fig.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150, facecolor="white")
@@ -592,6 +682,7 @@ def generate_report_pdf(
                     item["select_meas"],
                     item["color_by"],
                     chart_type=item.get("chart_type", "Scatter"),
+                    colorblind_shapes=item.get("colorblind_shapes", False),
                     title_text=item.get("title_text"),
                     x_label=item.get("x_label", "Time"),
                     y_label=item.get("y_label"),

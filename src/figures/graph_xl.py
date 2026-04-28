@@ -72,7 +72,12 @@ def graph_from_xlsx(
     else:
         df["_series_group"] = df.index.astype(str)
 
-    hover_data = {c: True for c in df.columns}
+    _hover_hide = {
+        "reaction", "reactant", "sample_name", "Sample Name", "sample_number",
+        "Sample Number", "notes", "Notes", "custom_color", "_custom_color",
+        "_series_group",
+    }
+    hover_data = {c: (c not in _hover_hide) for c in df.columns}
 
     fig_kwargs = dict(
         width=1200,

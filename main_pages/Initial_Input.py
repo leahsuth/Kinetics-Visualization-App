@@ -47,11 +47,6 @@ if str(ROOT) not in sys.path:
 
 st.set_page_config(page_title="Experiment Setup", layout="wide")
 
-with open("index.css", "r") as file:
-    css = file.read()
-
-st.html(f"<style>{css}</style>")
-
 input_page_markdown.setup_header()
 
 st.session_state.setdefault("experiment_setup", {})
@@ -215,6 +210,7 @@ if uploaded is not None:
     if show_plate:
         has_wells = any(str(r.get("Reaction_Well", "")).strip() for r in reaction_rows)
         if not has_wells:
+            st.session_state.pop("plate_map_png", None)
             st.warning(
                 "No plate well data found. Add a **Reaction_Well** column to your "
                 "conditions file (e.g. A1, B3) to enable the plate visualization.",
@@ -232,6 +228,7 @@ if uploaded is not None:
                 )
                 st.session_state["excel_plate_well_info"] = well_info_excel
                 plate_png = generate_plate_png(well_info_excel, color_by, len(reaction_rows))
+                st.session_state["plate_map_png"] = plate_png
                 st.download_button(
                     "Download plate image (.png)",
                     data=plate_png,
@@ -239,6 +236,8 @@ if uploaded is not None:
                     mime="image/png",
                     key="excel_dl_png",
                 )
+    else:
+        st.session_state.pop("plate_map_png", None)
     # ── Step 3: Save & Proceed ─────────────────────────────────────────────
     input_page_markdown.step_label(3, "Save & Proceed")
 

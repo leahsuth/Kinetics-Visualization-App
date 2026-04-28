@@ -212,35 +212,55 @@ if is_preprocessed:
         key="generate_ratio_plot_preprocessed",
     )
     if generate_ratio_plot == "Yes":
-        ratio_chart_type = st.radio(
-            "Chart type",
-            ["Scatter", "Line"],
-            horizontal=True,
-            key="ratio_chart_type_preprocessed",
-        )
-        num_col, denom_col = st.columns(2)
-        with num_col:
-            ratio_numerator = st.selectbox(
-                "Numerator",
-                options=analytes,
-                key="ratio_numerator_preprocessed",
+        ratio_analytes = [a for a in analytes if a in df_plot.columns]
+        if len(ratio_analytes) < 2:
+            st.warning("Please select two analytes for the ratio plot.")
+        else:
+            ratio_chart_type = st.radio(
+                "Chart type",
+                ["Scatter", "Line"],
+                horizontal=True,
+                key="ratio_chart_type_preprocessed",
             )
-        with denom_col:
-            denominator_options = [a for a in analytes if a != ratio_numerator]
-            ratio_denominator = st.selectbox(
-                "Denominator",
-                options=denominator_options if denominator_options else analytes,
-                key="ratio_denominator_preprocessed",
-            )
+            num_col, denom_col = st.columns(2)
+            with num_col:
+                numerator_saved = st.session_state.get("ratio_numerator_preprocessed")
+                numerator_index = 0
+                if numerator_saved in ratio_analytes:
+                    numerator_index = ratio_analytes.index(numerator_saved)
+                ratio_numerator = st.selectbox(
+                    "Numerator",
+                    options=ratio_analytes,
+                    index=numerator_index,
+                    key="ratio_numerator_preprocessed",
+                )
+            with denom_col:
+                denominator_options = [a for a in ratio_analytes if a != ratio_numerator]
+                denominator_saved = st.session_state.get("ratio_denominator_preprocessed")
+                denominator_index = 0
+                if denominator_saved in denominator_options:
+                    denominator_index = denominator_options.index(denominator_saved)
+                ratio_denominator = st.selectbox(
+                    "Denominator",
+                    options=denominator_options,
+                    index=denominator_index,
+                    key="ratio_denominator_preprocessed",
+                )
 
-        numerator, denominator = ratio_numerator, ratio_denominator
-        ratio_label = f"{numerator}/{denominator}"
-        ratio_df = build_ratio_df(
-            df=df_preproc_plot,
-            reaction_col="Reaction",
-            numerator=numerator,
-            denominator=denominator,
-        )
+            numerator, denominator = ratio_numerator, ratio_denominator
+            ratio_label = f"{numerator}/{denominator}"
+            if numerator not in df_plot.columns or denominator not in df_plot.columns:
+                st.warning(
+                    "Selected ratio analytes are not available in the current dataset. "
+                    "Please reselect numerator/denominator."
+                )
+            else:
+                ratio_df = build_ratio_df(
+                    df=df_plot,
+                    reaction_col="Reaction",
+                    numerator=numerator,
+                    denominator=denominator,
+                )
         if ratio_df.empty:
             st.warning("No data available for the ratio plot.")
         elif reactions_for_plots:
@@ -281,20 +301,21 @@ if is_preprocessed:
                 st.plotly_chart(fig, use_container_width=True)
 
         # Collect analyte-ratio entries for PDF report
-        for rxn in selected_reactions:
-            df_ratio_rxn = ratio_df[ratio_df["Reaction"].astype(str) == str(rxn)]
-            if df_ratio_rxn.empty:
-                continue
-            analyte_ratio_plot_data.append({
-                "reaction": rxn,
-                "df": df_ratio_rxn,
-                "numerator": numerator,
-                "denominator": denominator,
-                "color_by": "Reaction",
-                "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
-                "x_label": f"Time ({time_unit})",
-                "y_label": ratio_label,
-            })
+        if "Reaction" in ratio_df.columns:
+            for rxn in selected_reactions:
+                df_ratio_rxn = ratio_df[ratio_df["Reaction"].astype(str) == str(rxn)]
+                if df_ratio_rxn.empty:
+                    continue
+                analyte_ratio_plot_data.append({
+                    "reaction": rxn,
+                    "df": df_ratio_rxn,
+                    "numerator": numerator,
+                    "denominator": denominator,
+                    "color_by": "Reaction",
+                    "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
+                    "x_label": f"Time ({time_unit})",
+                    "y_label": ratio_label,
+                })
 
     # Collect one entry per selected reaction for the PDF report
     for rxn in selected_reactions:
@@ -324,6 +345,7 @@ if is_preprocessed:
             "select_meas": "value",
             "color_by": color_by_pdf,
             "chart_type": chart_type,
+            "colorblind_shapes": colorblind_shapes,
             "title_text": f"{measurement_type} vs. Time for Reaction {rxn}",
             "x_label": f"Time ({time_unit})",
             "y_label": measurement_type,
@@ -532,20 +554,21 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
 
         # Collect analyte-ratio entries for PDF report
-        for rxn in selected_reactions:
-            df_ratio_rxn = ratio_df[ratio_df["reaction"].astype(str) == str(rxn)]
-            if df_ratio_rxn.empty:
-                continue
-            analyte_ratio_plot_data.append({
-                "reaction": rxn,
-                "df": df_ratio_rxn,
-                "numerator": numerator,
-                "denominator": denominator,
-                "color_by": "reaction",
-                "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
-                "x_label": f"Time ({time_unit})",
-                "y_label": ratio_label,
-            })
+        if "reaction" in ratio_df.columns:
+            for rxn in selected_reactions:
+                df_ratio_rxn = ratio_df[ratio_df["reaction"].astype(str) == str(rxn)]
+                if df_ratio_rxn.empty:
+                    continue
+                analyte_ratio_plot_data.append({
+                    "reaction": rxn,
+                    "df": df_ratio_rxn,
+                    "numerator": numerator,
+                    "denominator": denominator,
+                    "color_by": "reaction",
+                    "title_text": f"{ratio_label} vs. Time for Reaction {rxn}",
+                    "x_label": f"Time ({time_unit})",
+                    "y_label": ratio_label,
+                })
 
     first_line = st.session_state["first_line"]
     st.caption(first_line)
@@ -560,6 +583,7 @@ else:
                 "df": df_rxn,
                 "select_meas": selected_measurements,
                 "color_by": color_by,
+                "colorblind_shapes": colorblind_shapes,
                 "title_text": f"{pretty_meas} vs. Time for Reaction {rxn}",
                 "x_label": f"Time ({time_unit})",
                 "y_label": pretty_meas,

@@ -1080,6 +1080,20 @@ if st.session_state["kinetics_plot_history"]:
             st.session_state["kinetics_clear_counter"] += 1
             st.rerun()
 
+    st.markdown(
+        "<div style=\"border:1px solid #d7dedd;border-left:4px solid #007A73;"
+        "background:#f6fbfa;border-radius:8px;padding:10px 14px;margin:6px 0 14px 0;"
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+        "font-size:0.86rem;color:#1f2626;line-height:1.55;\">"
+        "<b>C₀</b> — initial concentration at <i>t&nbsp;=&nbsp;0</i>. &nbsp;"
+        "<b>Cₑ</b> — equilibrium (final) concentration as "
+        "<i>t&nbsp;→&nbsp;∞</i>. &nbsp;"
+        "<b>k</b> — fitted rate constant. &nbsp;"
+        "<b>Rate</b> — initial rate computed from the fit."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
     analyte_groups: dict = defaultdict(list)
     for idx, item in enumerate(st.session_state["kinetics_plot_history"]):
         analyte_groups[item["analyte"]].append((idx, item))

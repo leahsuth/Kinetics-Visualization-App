@@ -16,7 +16,7 @@ def normalize_preprocessed_conditions(file_name):
     df = process_conditions_file(file_name)
 
     # Normalize alternate reaction headers (e.g., "rxn") to "Reaction".
-    rxn_col = find_col_contains(df.columns, "Reaction", "reaction", "rxn")
+    rxn_col = find_col_contains(df.columns, "Reaction", "reaction", "rxn", "RXN", "REACTION")
     if rxn_col and rxn_col != "Reaction":
         df = df.rename(columns={rxn_col: "Reaction"})
     # Throw error if the reaction column is not found.

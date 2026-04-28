@@ -13,10 +13,7 @@ st.set_page_config(
 )
 
 st.logo(image='assets/Merck_Logo.png')
-with open("index.css", "r") as file:
-    css = file.read()
 
-st.html(f"<style>{css}</style>")
 utility_header()
 
 tab1, tab2, tab3, tab4 = st.tabs(["Concentration Calculations", "Dilutions", "Enantiomeric Excess", "Diasteromeric Excess"])

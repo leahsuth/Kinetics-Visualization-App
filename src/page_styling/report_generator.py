@@ -216,6 +216,15 @@ def _heatmap_to_png(pivot: pd.DataFrame,
     return buf.getvalue()
 
 
+def _natural_rxn_key(value):
+    """Sort key for reaction labels: numerics first by float value, then strings."""
+    s = str(value).strip()
+    try:
+        return (0, float(s))
+    except (TypeError, ValueError):
+        return (1, s)
+
+
 def build_rate_heatmap_png(combined_rate_df: pd.DataFrame,
                            figsize: tuple[float, float] | None = None) -> bytes | None:
     """Public helper: build a heatmap PNG from the combined rate table."""
@@ -226,6 +235,9 @@ def build_rate_heatmap_png(combined_rate_df: pd.DataFrame,
     )
     if pivot.empty:
         return None
+    # pivot_table re-sorts the index lexicographically; restore numeric order
+    # so reactions show as "1, 2, ..., 10, 11" instead of "1, 10, 11, ..., 2".
+    pivot = pivot.reindex(sorted(pivot.index, key=_natural_rxn_key))
     return _heatmap_to_png(pivot, figsize=figsize)
 
 

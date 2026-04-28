@@ -37,12 +37,15 @@ def data_source_help_text():
                     </ul>
                 </div>
                 <div>
-                    <h2>Processed</h2>Use this when you already have a <b>single table</b> of kinetics that is
-                    <b>ready to plot</b> (time column + one column per analyte).
+                    <h2>Processed</h2> Use this when you already have processed kinetics data that is
+                    <b>ready to plot</b> (time column + one column per analyte). <br>
                     <ul>
-                        <li>You upload <b>one</b> file (<code>.csv</code> or <code>.xlsx</code>); no separate conditions file.</li>
-                        <li>Reactions are inferred from the file (e.g. when time resets between runs).</li>
-                        <li>Open How processed files should look below for an example table layout.</li>
+                        <li> This data should include a <b>Reaction</b> column and <b>time</b> column, with one column per analyte. <br>
+                        <li> You upload <b>two</b> files: experiment conditions and processed measurements. <br>
+                        <li> Conditions define <b>reaction IDs</b>, <b># of Timepoints</b> (per reaction), optional <b>Reaction_Well</b> for plate analysis, and any extra condition columns. <br>
+                        <li> Processed data must include a <b>Reaction</b> column, plus one column per analyte. <br>
+                        <li> There should only be one measurement type per file (e.g. all concentration). <br>
+                        <li> Open <b>How processed files should look</b> below for the measurements layout.</li>
                     </ul>
                 </div>
             </div>

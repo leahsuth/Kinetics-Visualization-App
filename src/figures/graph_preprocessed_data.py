@@ -61,13 +61,25 @@ def build_preprocessed_figure(
 
     melted_df["Reaction"] = melted_df["Reaction"].astype(str)
 
-    hover_opts = {"time": True, "Concentration": True, "Analyte": True}
-
     melted_df["_series_group"] = (
         melted_df["Reaction"].astype(str)
         + " | "
         + melted_df["Analyte"].astype(str)
     )
+
+    hover_opts = {
+        "time": True,
+        "Concentration": True,
+        "Analyte": True,
+        "Reaction": False,
+        "Sample Name": False,
+        "Sample Number": False,
+        "Notes": False,
+        "custom_color": False,
+        "_custom_color": False,
+        "_series_group": False,
+    }
+    hover_opts = {k: v for k, v in hover_opts.items() if k in melted_df.columns}
 
     fig_kwargs = dict(
         width=1200,

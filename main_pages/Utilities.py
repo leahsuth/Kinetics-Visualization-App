@@ -3,6 +3,7 @@ from src.page_styling.utilities_page.concentration import main_concentration_wid
 from src.page_styling.utilities_page.dilution import dilution_widget
 from src.page_styling.utilities_page.header import utility_header
 from src.page_styling.utilities_page.enantiomeric_excee import ee_widget
+from src.page_styling.utilities_page.diasteriometric_excess import de_widget
 
 st.set_page_config(
     page_title="Utilities",
@@ -15,7 +16,7 @@ st.logo(image='assets/Merck_Logo.png')
 
 utility_header()
 
-tab1, tab2, tab3, tab4 = st.tabs(["Concentration Calculations", "Dilutions", "Enantiomeric Excess", "Purity"])
+tab1, tab2, tab3, tab4 = st.tabs(["Concentration Calculations", "Dilutions", "Enantiomeric Excess", "Diasteromeric Excess"])
 with tab1:
     main_concentration_widget()
 with tab2:
@@ -23,4 +24,4 @@ with tab2:
 with tab3:
     ee_widget()
 with tab4:
-    st.write("Coming soon! :grin:")
+    de_widget()

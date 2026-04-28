@@ -2,7 +2,7 @@ import streamlit as st
 from src.page_styling.utilities_page.concentration import main_concentration_widget
 from src.page_styling.utilities_page.dilution import dilution_widget
 from src.page_styling.utilities_page.header import utility_header
-from src.page_styling.utilities_page.enantiomeric_excee import ee_widget
+from src.page_styling.utilities_page.enantiomeric_excess import ee_widget
 from src.page_styling.utilities_page.diasteriometric_excess import de_widget
 
 st.set_page_config(

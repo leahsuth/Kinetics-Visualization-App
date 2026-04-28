@@ -43,6 +43,7 @@ def _df_to_png(
     df,
     select_meas: str,
     color_by: str,
+    chart_type: str = "Scatter",
     title_text: str | None = None,
     x_label: str = "Time",
     y_label: str | None = None,
@@ -55,13 +56,25 @@ def _df_to_png(
     # Iterate groups in first-seen order so the color assignment matches the
     # browser's Plotly figure (color_discrete_sequence + categorical color).
     groups = list(df.groupby(color_col, sort=False))
+    is_line = str(chart_type or "").strip().lower() == "line"
     for i, (label, group) in enumerate(groups):
-        group = group.sort_values("time")
+        group = group.copy()
+        group["time"] = pd.to_numeric(group["time"], errors="coerce")
+        group[select_meas] = pd.to_numeric(group[select_meas], errors="coerce")
+        group = group.dropna(subset=["time", select_meas]).sort_values("time")
+        if group.empty:
+            continue
         color = PLOTLY_QUALITATIVE[i % len(PLOTLY_QUALITATIVE)]
-        ax.scatter(
-            group["time"], group[select_meas], label=str(label),
-            color=color, s=28, edgecolor="white", linewidth=0.6, zorder=3,
-        )
+        if is_line:
+            ax.plot(
+                group["time"], group[select_meas], label=str(label),
+                color=color, marker="o", markersize=4, linewidth=1.8, zorder=3,
+            )
+        else:
+            ax.scatter(
+                group["time"], group[select_meas], label=str(label),
+                color=color, s=28, edgecolor="white", linewidth=0.6, zorder=3,
+            )
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label or select_meas)
     ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=13, color=DARK_TEAL_HEX, pad=10)
@@ -557,6 +570,7 @@ def generate_report_pdf(
                     item["df"],
                     item["select_meas"],
                     item["color_by"],
+                    chart_type=item.get("chart_type", "Scatter"),
                     title_text=item.get("title_text"),
                     x_label=item.get("x_label", "Time"),
                     y_label=item.get("y_label"),

@@ -157,19 +157,26 @@ def _heatmap_to_png(pivot: pd.DataFrame,
     ax.set_yticklabels([str(r) for r in pivot.index], fontsize=11)
     ax.tick_params(axis="both", colors="#1f2626", length=3, color=BORDER_HEX)
 
-    # Subtle, small annotations - only when there's room.
-    if n_rows <= 28 and n_cols <= 14:
-        cell_fs = 7 if (n_rows <= 18 and n_cols <= 10) else 6
-        for i in range(n_rows):
-            for j in range(n_cols):
-                val = data[i, j]
-                if not np.isfinite(val):
-                    continue
-                rgba = im.cmap(im.norm(val))
-                luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
-                txt_color = "white" if luminance < 0.45 else "#1f2626"
-                ax.text(j, i, f"{val:.2f}", ha="center", va="center",
-                        color=txt_color, fontsize=cell_fs, alpha=0.85)
+    # Always show the numeric value inside each cell (scale font so it stays
+    # readable as the grid gets denser).
+    if n_rows <= 10 and n_cols <= 8:
+        cell_fs = 9
+    elif n_rows <= 18 and n_cols <= 10:
+        cell_fs = 8
+    elif n_rows <= 28 and n_cols <= 14:
+        cell_fs = 7
+    else:
+        cell_fs = 6
+    for i in range(n_rows):
+        for j in range(n_cols):
+            val = data[i, j]
+            if not np.isfinite(val):
+                continue
+            rgba = im.cmap(im.norm(val))
+            luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+            txt_color = "white" if luminance < 0.45 else "#1f2626"
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center",
+                    color=txt_color, fontsize=cell_fs, alpha=0.95)
 
     ax.set_xlabel("Analyte / Condition", fontsize=13, color=DARK_TEAL_HEX,
                   labelpad=10, fontweight="bold")

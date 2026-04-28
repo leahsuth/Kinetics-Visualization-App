@@ -1,5 +1,6 @@
 import io
 import datetime
+import re
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -212,6 +213,10 @@ def _heatmap_to_png(pivot: pd.DataFrame,
 def build_rate_heatmap_png(combined_rate_df: pd.DataFrame,
                            figsize: tuple[float, float] | None = None) -> bytes | None:
     """Public helper: build a heatmap PNG from the combined rate table."""
+    def _natural_sort_key(value) -> list:
+        parts = re.split(r"(\d+)", str(value))
+        return [int(p) if p.isdigit() else p.lower() for p in parts]
+
     if combined_rate_df is None or combined_rate_df.empty:
         return None
     pivot = combined_rate_df.pivot_table(
@@ -219,6 +224,11 @@ def build_rate_heatmap_png(combined_rate_df: pd.DataFrame,
     )
     if pivot.empty:
         return None
+    pivot = pivot.sort_index(key=lambda idx: idx.map(_natural_sort_key))
+    pivot = pivot.reindex(
+        sorted(pivot.columns, key=_natural_sort_key),
+        axis=1,
+    )
     return _heatmap_to_png(pivot, figsize=figsize)
 
 

@@ -774,15 +774,24 @@ for rxn in selected_reactions:
 
 combined_rate_df = pd.DataFrame(combined_rows, columns=["Reaction", "Analyte", "Rate"])
 # Keep rows ordered so rowspan merging shows contiguous reaction groups.
+# Sort numerically when reaction labels parse as numbers ("1, 2, 10" not
+# "1, 10, 2"), falling back to alphabetical for non-numeric labels.
 if not combined_rate_df.empty:
     combined_rate_df["Reaction"] = combined_rate_df["Reaction"].astype(str)
-    _order = {str(r): i for i, r in enumerate(selected_reactions)}
+
+    def _rxn_sort_key(r: str) -> tuple:
+        try:
+            return (0, float(r))
+        except (TypeError, ValueError):
+            return (1, str(r))
+
     combined_rate_df = (
         combined_rate_df.assign(
-            _ord=combined_rate_df["Reaction"].map(lambda r: _order.get(str(r), 10**9))
+            _ord_num=combined_rate_df["Reaction"].map(lambda r: _rxn_sort_key(r)[0]),
+            _ord_val=combined_rate_df["Reaction"].map(lambda r: _rxn_sort_key(r)[1]),
         )
-        .sort_values(["_ord"], kind="stable")
-        .drop(columns="_ord")
+        .sort_values(["_ord_num", "_ord_val"], kind="stable")
+        .drop(columns=["_ord_num", "_ord_val"])
         .reset_index(drop=True)
     )
 

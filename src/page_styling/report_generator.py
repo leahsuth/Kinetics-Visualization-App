@@ -141,6 +141,8 @@ def _df_to_png(
     if reactant_col:
         group_cols.append(reactant_col)
 
+    legend_entries = {}
+
     for keys, group in data.groupby(group_cols, dropna=False):
         group = group.sort_values("time")
         if isinstance(keys, tuple):
@@ -149,29 +151,38 @@ def _df_to_png(
             color_label = str(keys)
         color = color_map.get(color_label)
         marker = "o"
+        legend_label = color_label
         if colorblind_shapes:
             shape_label = str(group[shape_col].astype(str).iloc[0])
             symbol_name = shape_symbol_map.get(shape_label, "circle")
             marker = mpl_symbol_map.get(symbol_name, "o")
+            legend_label = f"{color_label} | {shape_label}"
 
         if str(chart_type).lower() == "line":
             ax.plot(group["time"], group[select_meas], marker=marker, color=color)
         else:
             ax.scatter(group["time"], group[select_meas], color=color, marker=marker)
+        legend_entries.setdefault(legend_label, {"color": color, "marker": marker})
 
-    # Legend should reflect the selected color grouping only.
-    for label in color_labels:
-        ax.plot([], [], marker="o", linestyle="", color=color_map[label], label=label)
+    for label, style in legend_entries.items():
+        ax.plot(
+            [],
+            [],
+            marker=style["marker"],
+            linestyle="",
+            color=style["color"],
+            label=label,
+        )
 
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label or select_meas)
     ax.set_title(title_text or f"{select_meas} vs. Time", fontsize=14)
     leg = ax.legend(
-        title=color_col,
+        title=f"{color_col} | {shape_col}" if colorblind_shapes else color_col,
         bbox_to_anchor=(1.01, 1),
         loc="upper left",
-        fontsize=10,
-        title_fontsize=10,
+        fontsize=12,
+        title_fontsize=12,
         frameon=True,
         fancybox=True,
         framealpha=0.95,
@@ -242,7 +253,7 @@ def _history_item_to_png(item: dict) -> bytes:
         f"Reaction {item['reaction']} - {analyte} ({item['profile_type']})", fontsize=11
     )
     leg = ax.legend(
-        fontsize=10,
+        fontsize=12,
         frameon=True,
         fancybox=True,
         framealpha=0.95,

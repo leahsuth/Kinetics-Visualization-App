@@ -36,3 +36,32 @@ with col_help:
     if help_button:
         help_dialog()
 
+st.markdown(
+    """
+    <style>
+      /* Keep page content above fixed footer */
+      .stMainBlockContainer {
+        padding-bottom: 3.25rem;
+      }
+      .app-footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        color: #6b7280;
+        font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.92);
+        border-top: 1px solid #e5e7eb;
+        padding: 0.5rem 0.75rem;
+        z-index: 999;
+        backdrop-filter: blur(2px);
+      }
+    </style>
+    <div class="app-footer">
+      Built by: Trisha Kholiya, Randa Lateef, James McTighe, Leah Sutherland
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+

@@ -46,7 +46,7 @@ This program requires Podman to run. To view the current UI, run the following c
 1. Navigate to project directory
 
 ```bash
-cd MERCK-1-26-Team-main
+cd Kinetics_Visualization_app
 ```
 
 2. Build podman image

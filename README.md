@@ -70,20 +70,13 @@ cd MERCK-1-26-Team-main
 ├── Dockerfile                                  Defines the base environment, installs dependencies, and sets the working directory to build the application
 ├── README.md                                   Project overview
 ├── Welcome.py                                  Configures the application homepage
-├── assets                                      Contains image files used within application
+├── main_pages                                      Contains image files used within application
 │   ├── Initial_input.png                       Instructions for Initial Input page
 │   ├── Kinetics.png                            Instructions for Kinetics page
-│   ├── Merck_Logo.png                          Company logo
 │   └── Unit_Conversions.png                    Instructions for Unit Conversions page
 ├── build_image.sh                              Builds the application
 ├── data                                        Example datafiles
 │   ├── Example_Data_SpiroXantPhos.csv
-│   ├── NB-0123-0005_Cat_Loading_Conditions.csv
-│   ├── NB-0123-0005_Cat_Loading_Conditions.xlsx
-│   ├── NB-0123-0005_Cat_Loading_Data.csv
-│   ├── NB-0123-0005_Cat_Loading_Data.xlsx
-│   └── NB-0123-0005_Cat_Loading_Initial_Rates.xlsx
-├── dataset_with_loading_data.csv               Example datafile
 ├── docker-compose.yml                          Standardizes application environment
 ├── index.css                                   Configures buttons used within application
 ├── interactive.sh                              Allows users to input commands

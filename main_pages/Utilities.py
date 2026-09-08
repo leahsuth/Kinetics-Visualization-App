@@ -12,7 +12,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.logo(image='assets/Merck_Logo.png')
 
 utility_header()
 

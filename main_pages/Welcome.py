@@ -16,8 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.logo(image='assets/Merck_Logo.png')
-
 larger_banner("Welcome to the Kinetics Visualization App!", "Upload data, visualize reaction plots, and calculate initial rates.")
 
 about_main_body()

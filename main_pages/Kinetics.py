@@ -136,7 +136,6 @@ def _render_combined_rate_table_html(df: pd.DataFrame) -> str:
     return "".join(parts)
 
 
-st.logo(image='assets/Merck_Logo.png')
 st.set_page_config(
     page_title="Kinetics",
     page_icon="📊",

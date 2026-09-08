@@ -39,7 +39,6 @@ from src.parsing.process_preprocessed_data import (
 
 from src.page_styling.template import excel_template_bytes_HPLC, excel_template_bytes_Processed
 
-st.logo(image='assets/Merck_Logo.png')
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
